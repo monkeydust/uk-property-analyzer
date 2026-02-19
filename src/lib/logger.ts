@@ -12,7 +12,7 @@ const MAX_LOGS = 100;
 const logs: LogEntry[] = [];
 
 function generateId(): string {
-  return Math.random().toString(36).substring(2, 9);
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
 
 export const logger = {

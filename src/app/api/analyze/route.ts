@@ -12,6 +12,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
 
     // Validate URL
     if (!url || typeof url !== 'string') {
+      logger.warn('URL is required', 'analyze');
       return NextResponse.json(
         { success: false, error: 'URL is required' },
         { status: 400 }
@@ -19,6 +20,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
     }
 
     if (!isValidRightmoveUrl(url)) {
+      logger.warn(`Invalid Rightmove URL: ${url}`, 'analyze');
       return NextResponse.json(
         { success: false, error: 'Invalid Rightmove URL. Please provide a valid property URL.' },
         { status: 400 }
@@ -38,8 +40,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
     const scrapeResult = await scrapeRightmoveProperty(url);
 
     if (!scrapeResult.success || !scrapeResult.property) {
+      logger.error(`Scrape failed: ${scrapeResult.error}`, 'analyze');
       return NextResponse.json(
-        { success: false, error: scrapeResult.error || 'Failed to scrape property' },
+        { success: false, error: scrapeResult.error || 'Failed to scrape property', logs: logger.getAll() },
         { status: 422 }
       );
     }

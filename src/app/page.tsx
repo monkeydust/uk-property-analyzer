@@ -1144,9 +1144,9 @@ function HomeContent() {
 
             {/* Logs Section - Collapsible */}
             <div className="bg-slate-800 rounded-xl shadow-md overflow-hidden">
-              <button
+              <div
                 onClick={() => setLogsExpanded(!logsExpanded)}
-                className="w-full px-6 py-4 flex items-center justify-between text-white hover:bg-slate-700 transition-colors"
+                className="w-full px-6 py-4 flex items-center justify-between text-white hover:bg-slate-700 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-2">
                   {logsExpanded ? (
@@ -1163,19 +1163,19 @@ function HomeContent() {
                   )}
                 </div>
                 {logsExpanded && logs.length > 0 && (
-                  <button
+                  <span
                     onClick={(e) => {
                       e.stopPropagation();
                       fetch('/api/logs', { method: 'DELETE' })
                         .then(() => setLogs([]));
                     }}
-                    className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded-md flex items-center gap-1 transition-colors"
+                    className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                     Clear
-                  </button>
+                  </span>
                 )}
-              </button>
+              </div>
 
               {logsExpanded && (
                 <div className="px-6 pb-6 max-h-96 overflow-y-auto">

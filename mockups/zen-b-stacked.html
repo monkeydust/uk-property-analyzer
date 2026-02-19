@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zen Mode B — Stacked Labels</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+    .epc-bar {
+      height: 6px;
+      border-radius: 3px;
+      background: #e5e5e5;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .epc-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+    }
+    .section-line {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-line::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #d4d4d4;
+    }
+  </style>
+</head>
+<body class="bg-neutral-50 min-h-screen py-12 px-4">
+  <div class="max-w-3xl mx-auto py-10 px-6 sm:px-10">
+
+    <!-- Address -->
+    <div class="mb-12">
+      <h1 class="text-2xl font-semibold text-neutral-900 tracking-tight">17 Roseberry Avenue, Finsbury Park</h1>
+      <p class="text-sm text-neutral-400 mt-1">London N4 7BQ</p>
+    </div>
+
+    <!-- Key Metrics Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-10 mb-14">
+
+      <!-- Price -->
+      <div>
+        <p class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium mb-1">Price</p>
+        <p class="text-3xl font-light text-neutral-900">&pound;650,000</p>
+        <p class="text-xs text-neutral-400 mt-1">Guide Price &middot; For Sale</p>
+      </div>
+
+      <!-- Price / Sq Ft -->
+      <div>
+        <p class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium mb-1">Price / Sq Ft</p>
+        <p class="text-3xl font-light text-neutral-900">&pound;590</p>
+      </div>
+
+      <!-- Bedrooms -->
+      <div>
+        <p class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium mb-1">Bedrooms</p>
+        <p class="text-3xl font-light text-neutral-900">3</p>
+      </div>
+
+      <!-- Bathrooms -->
+      <div>
+        <p class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium mb-1">Bathrooms</p>
+        <p class="text-3xl font-light text-neutral-900">2</p>
+      </div>
+
+      <!-- Property Type -->
+      <div>
+        <p class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium mb-1">Property Type</p>
+        <p class="text-3xl font-light text-neutral-900">Semi-Detached House</p>
+      </div>
+
+      <!-- Square Footage -->
+      <div>
+        <p class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium mb-1">Square Footage</p>
+        <p class="text-3xl font-light text-neutral-900">1,102 sq ft</p>
+      </div>
+
+      <!-- EPC Current -->
+      <div>
+        <p class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium mb-1">EPC Current</p>
+        <p class="text-3xl font-light text-neutral-900">D</p>
+        <div class="epc-bar w-full max-w-[180px]">
+          <div class="epc-bar-fill bg-yellow-400" style="width: 55%"></div>
+        </div>
+        <p class="text-xs text-neutral-400 mt-1">55 / 100</p>
+      </div>
+
+      <!-- EPC Potential -->
+      <div>
+        <p class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium mb-1">EPC Potential</p>
+        <p class="text-3xl font-light text-neutral-900">B</p>
+        <div class="epc-bar w-full max-w-[180px]">
+          <div class="epc-bar-fill bg-green-500" style="width: 82%"></div>
+        </div>
+        <p class="text-xs text-neutral-400 mt-1">82 / 100</p>
+      </div>
+    </div>
+
+    <!-- NEAREST STATIONS -->
+    <div class="mb-14">
+      <div class="section-line mb-6">
+        <span class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium whitespace-nowrap">Nearest Stations</span>
+      </div>
+
+      <div class="space-y-3">
+        <p class="text-sm text-neutral-700">Finsbury Park &middot; FPK &middot; 8 min &middot; 0.4 mi</p>
+        <p class="text-sm text-neutral-700">Harringay &middot; HGY &middot; 12 min &middot; 0.6 mi</p>
+        <p class="text-sm text-neutral-700">Drayton Park &middot; DYP &middot; 14 min &middot; 0.7 mi</p>
+      </div>
+    </div>
+
+    <!-- FEATURES -->
+    <div class="mb-14">
+      <div class="section-line mb-6">
+        <span class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium whitespace-nowrap">Features</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-16 gap-y-2">
+        <p class="text-sm text-neutral-700">South-facing garden</p>
+        <p class="text-sm text-neutral-700">Refurbished kitchen</p>
+        <p class="text-sm text-neutral-700">Victorian features</p>
+        <p class="text-sm text-neutral-700">Gas central heating</p>
+        <p class="text-sm text-neutral-700">Double glazing</p>
+        <p class="text-sm text-neutral-700">Loft conversion</p>
+      </div>
+    </div>
+
+    <!-- DESCRIPTION -->
+    <div class="mb-10">
+      <div class="section-line mb-6">
+        <span class="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium whitespace-nowrap">Description</span>
+      </div>
+
+      <p class="text-sm text-neutral-600 leading-relaxed">
+        A beautifully presented three bedroom semi-detached house located on a quiet tree-lined street in the heart of Finsbury Park. The property has been tastefully renovated throughout and offers generous living space across two floors. The ground floor comprises a welcoming entrance hall, a spacious through-lounge with original period features, and a modern open-plan kitchen/diner leading to a south-facing garden.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <p class="text-xs text-neutral-400">51.5648, -0.1062</p>
+
+  </div>
+</body>
+</html>

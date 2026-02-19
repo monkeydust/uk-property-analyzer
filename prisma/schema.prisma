@@ -1,0 +1,19 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Analysis {
+  id           String   @id @default(cuid())
+  sourceUrl    String
+  propertyData String   // JSON stored as string
+  postcode     String?
+  createdAt    DateTime @default(now())
+
+  @@index([sourceUrl])
+}

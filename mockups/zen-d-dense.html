@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zen Mode D — Dense / Terminal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 12px; }
+    .lbl { color: #78716c; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .val { color: #1c1917; font-weight: 500; }
+    .row { display: flex; align-items: baseline; justify-content: space-between; padding: 3px 0; }
+    .pipe { color: #d6d3d1; margin: 0 6px; }
+    .tag { display: inline-block; font-size: 10px; padding: 1px 5px; border-radius: 2px; font-weight: 500; }
+  </style>
+</head>
+<body class="bg-stone-100 min-h-screen py-8 px-4">
+  <div class="max-w-2xl mx-auto bg-white border border-stone-200 rounded-md overflow-hidden">
+
+    <!-- Header bar -->
+    <div class="px-4 py-2 bg-stone-800 text-stone-300 flex items-baseline justify-between">
+      <span class="text-xs font-semibold tracking-wide text-white">17 ROSEBERRY AVENUE</span>
+      <span class="text-[10px] text-stone-400">Finsbury Park, London N4 7BQ</span>
+    </div>
+
+    <!-- Main grid -->
+    <div class="px-4 py-3">
+
+      <!-- Price row — full width, prominent -->
+      <div class="flex items-baseline gap-4 pb-2 mb-2 border-b border-stone-100">
+        <span class="text-xl font-semibold text-stone-900">&pound;650,000</span>
+        <span class="tag bg-stone-100 text-stone-500">Guide Price</span>
+        <span class="tag bg-emerald-50 text-emerald-700">For Sale</span>
+        <span class="ml-auto text-xs text-stone-400">&pound;590/sqft</span>
+      </div>
+
+      <!-- Two-column key stats -->
+      <div class="grid grid-cols-2 gap-x-6 gap-y-0.5 py-2 border-b border-stone-100">
+        <div class="row">
+          <span class="lbl">Type</span>
+          <span class="val">Semi-Detached House</span>
+        </div>
+        <div class="row">
+          <span class="lbl">Size</span>
+          <span class="val">1,102 sqft</span>
+        </div>
+        <div class="row">
+          <span class="lbl">Beds</span>
+          <span class="val">3</span>
+        </div>
+        <div class="row">
+          <span class="lbl">Baths</span>
+          <span class="val">2</span>
+        </div>
+        <div class="row">
+          <span class="lbl">EPC</span>
+          <span class="val">
+            <span class="tag bg-yellow-100 text-yellow-700">D</span>
+            <span class="text-stone-300 mx-1">&rarr;</span>
+            <span class="tag bg-green-100 text-green-700">B</span>
+          </span>
+        </div>
+        <div class="row">
+          <span class="lbl">Coords</span>
+          <span class="text-[11px] text-stone-400">51.5648, -0.1062</span>
+        </div>
+      </div>
+
+      <!-- Stations — compact table -->
+      <div class="py-2 border-b border-stone-100">
+        <div class="flex items-baseline mb-1">
+          <span class="lbl">Stations</span>
+        </div>
+        <table class="w-full text-[11px]">
+          <thead>
+            <tr class="text-stone-400 text-[9px] uppercase tracking-wider">
+              <th class="text-left font-normal pb-0.5">Name</th>
+              <th class="text-left font-normal pb-0.5 w-12">Code</th>
+              <th class="text-right font-normal pb-0.5 w-14">Walk</th>
+              <th class="text-right font-normal pb-0.5 w-14">Dist</th>
+            </tr>
+          </thead>
+          <tbody class="text-stone-800">
+            <tr>
+              <td class="py-0.5 font-medium">Finsbury Park</td>
+              <td class="py-0.5 text-stone-400">FPK</td>
+              <td class="py-0.5 text-right">8 min</td>
+              <td class="py-0.5 text-right">0.4 mi</td>
+            </tr>
+            <tr>
+              <td class="py-0.5 font-medium">Harringay</td>
+              <td class="py-0.5 text-stone-400">HGY</td>
+              <td class="py-0.5 text-right">12 min</td>
+              <td class="py-0.5 text-right">0.6 mi</td>
+            </tr>
+            <tr>
+              <td class="py-0.5 font-medium">Drayton Park</td>
+              <td class="py-0.5 text-stone-400">DYP</td>
+              <td class="py-0.5 text-right">14 min</td>
+              <td class="py-0.5 text-right">0.7 mi</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Features — inline, comma-separated -->
+      <div class="py-2 border-b border-stone-100">
+        <span class="lbl">Features</span>
+        <p class="text-[11px] text-stone-700 mt-0.5 leading-relaxed">
+          South-facing garden<span class="pipe">&middot;</span>Refurbished kitchen<span class="pipe">&middot;</span>Victorian features<span class="pipe">&middot;</span>Gas central heating<span class="pipe">&middot;</span>Double glazing<span class="pipe">&middot;</span>Loft conversion
+        </p>
+      </div>
+
+      <!-- Description — compact -->
+      <div class="py-2">
+        <span class="lbl">Description</span>
+        <p class="text-[11px] text-stone-600 mt-0.5 leading-relaxed">
+          A beautifully presented three bedroom semi-detached house located on a quiet tree-lined street in the heart of Finsbury Park. The property has been tastefully renovated throughout and offers generous living space across two floors. The ground floor comprises a welcoming entrance hall, a spacious through-lounge with original period features, and a modern open-plan kitchen/diner leading to a south-facing garden. The first floor offers three well-proportioned bedrooms and a contemporary family bathroom.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

@@ -120,6 +120,10 @@ function HomeContent() {
         property: data.data.property,
         postcode: data.data.postcode,
       });
+
+      if (data.logs && data.logs.length > 0) {
+        setLogs(data.logs);
+      }
     } catch {
       setError('Network error - please try again');
     } finally {
@@ -243,6 +247,7 @@ function HomeContent() {
         if (data.success) {
           setAiAnalysis(data.analysis);
           setAiModel(data.model || null);
+          if (data.logs) setLogs(prev => [...data.logs, ...prev]);
         } else {
           setAiError(data.error || 'Failed to generate AI analysis');
         }
@@ -266,6 +271,7 @@ function HomeContent() {
         if (data.success) {
           setAi2Analysis(data.analysis);
           setAi2Model(data.model || null);
+          if (data.logs) setLogs(prev => [...data.logs, ...prev]);
         } else {
           setAi2Error(data.error || 'Failed to generate AI analysis');
         }

@@ -73,6 +73,13 @@ export interface AnalysisResponse {
     property: Property;
     postcode: string | null;
   };
+  logs?: {
+    id: string;
+    timestamp: string;
+    level: string;
+    message: string;
+    source?: string;
+  }[];
   error?: string;
 }
 

@@ -3,6 +3,7 @@ import { getAttendedSchools } from '@/lib/scraper/locrating';
 import { AttendedSchool, AttendedSchoolsResult } from '@/lib/types/property';
 import { getWalkingDistances, haversineDistance } from '@/lib/utils/google-maps';
 import { schoolsCache, TTL } from '@/lib/cache';
+import logger from '@/lib/logger';
 
 export const maxDuration = 300; // Playwright scrape can take 60-90s
 
@@ -91,11 +92,11 @@ export async function GET(request: NextRequest): Promise<NextResponse<AttendedSc
     const cacheKey = address.trim().toLowerCase();
     const cached = schoolsCache.get(cacheKey);
     if (cached) {
-      console.log(`Schools API: Cache HIT | "${address}"`);
-      return NextResponse.json(cached);
+      logger.info(`Cache HIT | "${address}"`, 'schools');
+      return NextResponse.json({ ...cached, logs: logger.getAll() });
     }
 
-    console.log(`Schools API: Cache MISS — fetching attended schools for "${address}"`);
+    logger.info(`Cache MISS — fetching attended schools for "${address}"`, 'schools');
     const result = await getAttendedSchools(address.trim());
 
     if (!result.success) {
@@ -108,10 +109,10 @@ export async function GET(request: NextRequest): Promise<NextResponse<AttendedSc
     }
 
     schoolsCache.set(cacheKey, result, TTL.SCHOOLS);
-    console.log(`Schools API: Cached for ${TTL.SCHOOLS / 3600 / 24}d | "${address}"`);
-    return NextResponse.json(result);
+    logger.info(`Cached for ${TTL.SCHOOLS / 3600 / 24}d | "${address}"`, 'schools');
+    return NextResponse.json({ ...result, logs: logger.getAll() });
   } catch (error) {
-    console.error('Schools API error:', error);
+    logger.error(`Schools API error: ${error}`, 'schools');
     return NextResponse.json(
       {
         success: false,
@@ -155,11 +156,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<AttendedS
     const cacheKey = address.trim().toLowerCase();
     const cached = schoolsCache.get(cacheKey);
     if (cached) {
-      console.log(`Schools API (POST): Cache HIT | "${address}"`);
-      return NextResponse.json(cached);
+      logger.info(`Cache HIT (POST) | "${address}"`, 'schools');
+      return NextResponse.json({ ...cached, logs: logger.getAll() });
     }
 
-    console.log(`Schools API (POST): Cache MISS — fetching attended schools for "${address}"`);
+    logger.info(`Cache MISS (POST) — fetching attended schools for "${address}"`, 'schools');
     const result = await getAttendedSchools(address.trim());
 
     if (!result.success) {
@@ -171,10 +172,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<AttendedS
     }
 
     schoolsCache.set(cacheKey, result, TTL.SCHOOLS);
-    console.log(`Schools API (POST): Cached for ${TTL.SCHOOLS / 3600 / 24}d | "${address}"`);
-    return NextResponse.json(result);
+    logger.info(`Cached for ${TTL.SCHOOLS / 3600 / 24}d (POST) | "${address}"`, 'schools');
+    return NextResponse.json({ ...result, logs: logger.getAll() });
   } catch (error) {
-    console.error('Schools API error:', error);
+    logger.error(`Schools API error (POST): ${error}`, 'schools');
     return NextResponse.json(
       {
         success: false,

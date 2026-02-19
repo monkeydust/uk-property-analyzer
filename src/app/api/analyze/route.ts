@@ -148,6 +148,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
         property,
         postcode: property.address.postcode,
       },
+      logs: logger.getAll(),
     };
     propertyCache.set(cacheKey, responseData, TTL.PROPERTY);
     logger.info(`Cached for ${TTL.PROPERTY / 3600}h | ${cacheKey}`, 'analyze');

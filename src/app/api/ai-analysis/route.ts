@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { aiCache, TTL } from '@/lib/cache';
+import logger from '@/lib/logger';
 
 export const maxDuration = 300; // 5 minutes — needed for slow models (Opus + web search)
 
@@ -70,12 +71,12 @@ export async function POST(request: NextRequest) {
     const cacheKey = `${selectedModel}::${propertyId}`;
     const cached = aiCache.get(cacheKey);
     if (cached) {
-      console.log(`[AI Analysis] Cache HIT | model=${selectedModel} | key=${cacheKey}`);
-      return NextResponse.json({ success: true, analysis: cached, model: selectedModel, cached: true });
+      logger.info(`Cache HIT | model=${selectedModel} | key=${cacheKey}`, 'ai-analysis');
+      return NextResponse.json({ success: true, analysis: cached, model: selectedModel, cached: true, logs: logger.getAll() });
     }
 
     const startTime = Date.now();
-    console.log(`[AI Analysis] Cache MISS — calling OpenRouter | model=${selectedModel}`);
+    logger.info(`Cache MISS — calling OpenRouter | model=${selectedModel}`, 'ai-analysis');
 
     const abort = new AbortController();
     const abortTimer = setTimeout(() => abort.abort(), 240_000); // 240s hard timeout
@@ -102,9 +103,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`[AI Analysis] ERROR | model=${selectedModel} | status=${response.status} | elapsed=${elapsed}s`);
-      console.error(`[AI Analysis] Response headers:`, Object.fromEntries(response.headers.entries()));
-      console.error(`[AI Analysis] Response body:`, errorText);
+      logger.error(`ERROR | model=${selectedModel} | status=${response.status} | elapsed=${elapsed}s`, 'ai-analysis');
       return NextResponse.json(
         { success: false, error: `AI service error (${response.status})` },
         { status: 502 }
@@ -117,19 +116,18 @@ export async function POST(request: NextRequest) {
     const usage = data.usage;
     const routerModel = data.model;
     const finishReason = data.choices?.[0]?.finish_reason;
-    console.log(`[AI Analysis] Response received | model=${selectedModel} | routed_to=${routerModel || 'unknown'} | elapsed=${elapsed}s | finish_reason=${finishReason || 'unknown'}`);
+    logger.info(`Response received | model=${selectedModel} | routed_to=${routerModel || 'unknown'} | elapsed=${elapsed}s | finish_reason=${finishReason || 'unknown'}`, 'ai-analysis');
     if (usage) {
-      console.log(`[AI Analysis] Token usage | prompt=${usage.prompt_tokens} | completion=${usage.completion_tokens} | total=${usage.total_tokens}`);
+      logger.info(`Token usage | prompt=${usage.prompt_tokens} | completion=${usage.completion_tokens} | total=${usage.total_tokens}`, 'ai-analysis');
     }
     if (data.id) {
-      console.log(`[AI Analysis] OpenRouter ID: ${data.id}`);
+      logger.info(`OpenRouter ID: ${data.id}`, 'ai-analysis');
     }
 
     const analysis = data.choices?.[0]?.message?.content;
 
     if (!analysis) {
-      console.error(`[AI Analysis] No content in response | model=${selectedModel} | data keys: ${Object.keys(data).join(', ')}`);
-      console.error(`[AI Analysis] Full response:`, JSON.stringify(data, null, 2));
+      logger.error(`No content in response | model=${selectedModel}`, 'ai-analysis');
       return NextResponse.json(
         { success: false, error: 'No analysis returned from AI service' },
         { status: 502 }
@@ -137,17 +135,17 @@ export async function POST(request: NextRequest) {
     }
 
     aiCache.set(cacheKey, analysis, TTL.AI);
-    console.log(`[AI Analysis] Success | model=${selectedModel} | response_length=${analysis.length} chars | cached for ${TTL.AI / 3600}h`);
-    return NextResponse.json({ success: true, analysis, model: selectedModel, cached: false });
+    logger.info(`Success | model=${selectedModel} | response_length=${analysis.length} chars | cached for ${TTL.AI / 3600}h`, 'ai-analysis');
+    return NextResponse.json({ success: true, analysis, model: selectedModel, cached: false, logs: logger.getAll() });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      console.error(`[AI Analysis] TIMEOUT after 240s`);
+      logger.error(`TIMEOUT after 240s`, 'ai-analysis');
       return NextResponse.json(
         { success: false, error: 'AI analysis timed out (model took too long to respond)' },
         { status: 504 }
       );
     }
-    console.error('[AI Analysis] Unexpected error:', error);
+    logger.error(`Unexpected error: ${error}`, 'ai-analysis');
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Property, AnalysisResponse, AttendedSchoolsResult } from '@/lib/types/property';
-import { Bed, Bath, Ruler, Home, MapPin, Copy, Check, ChevronDown, ChevronUp, Loader2, Zap, Train, CircleDot, HelpCircle, Clipboard, X, GraduationCap, Sparkles } from 'lucide-react';
+import { Bed, Bath, Ruler, Home, MapPin, Copy, Check, ChevronDown, ChevronUp, Loader2, Zap, Train, CircleDot, HelpCircle, Clipboard, X, GraduationCap, Sparkles, FileText, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -80,6 +80,9 @@ function HomeContent() {
   const [ai2Loading, setAi2Loading] = useState(false);
   const [ai2Error, setAi2Error] = useState<string | null>(null);
   const [ai2Model, setAi2Model] = useState<string | null>(null);
+  const [logsExpanded, setLogsExpanded] = useState(false);
+  const [logs, setLogs] = useState<{ id: string; timestamp: string; level: string; message: string; source?: string }[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   const submitUrl = useCallback(async (urlToSubmit: string) => {
     if (!urlToSubmit.includes('rightmove.co.uk')) {
@@ -270,6 +273,33 @@ function HomeContent() {
       .catch(() => setAi2Error('Network error fetching AI analysis'))
       .finally(() => setAi2Loading(false));
   }, [result, schoolsData, schoolsError, schoolsLoading]);
+
+  // Fetch logs when expanded
+  useEffect(() => {
+    if (!logsExpanded) return;
+    setLogsLoading(true);
+    fetch('/api/logs')
+      .then(res => res.json())
+      .then(data => {
+        setLogs(data.logs || []);
+      })
+      .catch(() => setLogs([]))
+      .finally(() => setLogsLoading(false));
+  }, [logsExpanded]);
+
+  // Poll for new logs when there's an active request
+  useEffect(() => {
+    if (!loading && !schoolsLoading && !aiLoading && !ai2Loading) return;
+    const interval = setInterval(() => {
+      if (logsExpanded) {
+        fetch('/api/logs')
+          .then(res => res.json())
+          .then(data => setLogs(data.logs || []))
+          .catch(() => {});
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [loading, schoolsLoading, aiLoading, ai2Loading, logsExpanded]);
 
   // Paste from clipboard button
   const handlePasteButton = async () => {
@@ -1102,6 +1132,78 @@ function HomeContent() {
                       ...(schoolsData ? { schoolsAttended: { areaName: schoolsData.areaName, primarySchools: schoolsData.primarySchools, secondarySchools: schoolsData.secondarySchools } } : {}),
                     }, null, 2)}
                   </pre>
+                </div>
+              )}
+            </div>
+
+            {/* Logs Section - Collapsible */}
+            <div className="bg-slate-800 rounded-xl shadow-md overflow-hidden">
+              <button
+                onClick={() => setLogsExpanded(!logsExpanded)}
+                className="w-full px-6 py-4 flex items-center justify-between text-white hover:bg-slate-700 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  {logsExpanded ? (
+                    <ChevronUp className="w-5 h-5" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5" />
+                  )}
+                  <FileText className="w-5 h-5" />
+                  <span className="font-medium">Activity Log</span>
+                  {logs.length > 0 && (
+                    <span className="text-xs px-2 py-0.5 bg-slate-600 rounded-full">
+                      {logs.length}
+                    </span>
+                  )}
+                </div>
+                {logsExpanded && logs.length > 0 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fetch('/api/logs', { method: 'DELETE' })
+                        .then(() => setLogs([]));
+                    }}
+                    className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded-md flex items-center gap-1 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Clear
+                  </button>
+                )}
+              </button>
+
+              {logsExpanded && (
+                <div className="px-6 pb-6 max-h-96 overflow-y-auto">
+                  {logsLoading ? (
+                    <div className="flex items-center justify-center gap-3 py-8 text-slate-400">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span className="text-sm">Loading logs...</span>
+                    </div>
+                  ) : logs.length === 0 ? (
+                    <p className="text-slate-400 text-sm py-4">No activity yet</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {logs.map((log) => (
+                        <div
+                          key={log.id}
+                          className={`p-2 rounded text-sm font-mono ${
+                            log.level === 'error' ? 'bg-red-900/30 text-red-300' :
+                            log.level === 'warn' ? 'bg-yellow-900/30 text-yellow-300' :
+                            'bg-slate-700/50 text-slate-300'
+                          }`}
+                        >
+                          <span className="text-slate-500 text-xs">
+                            {new Date(log.timestamp).toLocaleTimeString()}
+                          </span>
+                          {log.source && (
+                            <span className="text-slate-500 text-xs ml-2">
+                              [{log.source}]
+                            </span>
+                          )}
+                          <span className="ml-2">{log.message}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

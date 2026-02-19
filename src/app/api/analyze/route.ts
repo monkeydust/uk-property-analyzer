@@ -3,6 +3,7 @@ import { scrapeRightmoveProperty, isValidRightmoveUrl } from '@/lib/scraper/righ
 import { AnalysisResponse } from '@/lib/types/property';
 import { getWalkingDistances, reverseGeocode, findNearbyTrainStations, findNearbyTubeStations, getCoordinatesFromPostcode } from '@/lib/utils/google-maps';
 import { propertyCache, TTL } from '@/lib/cache';
+import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest): Promise<NextResponse<AnalysisResponse>> {
   try {
@@ -28,10 +29,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
     const cacheKey = url.split('?')[0].replace(/\/$/, '');
     const cached = propertyCache.get(cacheKey);
     if (cached) {
-      console.log(`[Analyze] Cache HIT | ${cacheKey}`);
+      logger.info(`Cache HIT | ${cacheKey}`, 'analyze');
       return NextResponse.json(cached);
     }
-    console.log(`[Analyze] Cache MISS — scraping | ${cacheKey}`);
+    logger.info(`Cache MISS — scraping | ${cacheKey}`, 'analyze');
 
     // Scrape the property
     const scrapeResult = await scrapeRightmoveProperty(url);
@@ -50,17 +51,17 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
 
     // If no coordinates from Rightmove, try Postcodes.io
     if (!coordinates && property.address.postcode) {
-      console.log('Fetching coordinates from Postcodes.io for:', property.address.postcode);
+      logger.info(`Fetching coordinates from Postcodes.io for: ${property.address.postcode}`, 'analyze');
       coordinates = await getCoordinatesFromPostcode(property.address.postcode);
       if (coordinates) {
         property.coordinates = coordinates;
-        console.log('Coordinates from Postcodes.io:', coordinates);
+        logger.info(`Coordinates from Postcodes.io: ${coordinates.latitude}, ${coordinates.longitude}`, 'analyze');
       }
     }
 
     // Try to get door number via reverse geocoding if we have coordinates
     if (coordinates && !property.address.doorNumber) {
-      console.log('Attempting reverse geocoding for door number...');
+      logger.info('Attempting reverse geocoding for door number...', 'analyze');
       const geocodeResult = await reverseGeocode(
         coordinates.latitude,
         coordinates.longitude
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
 
       if (geocodeResult?.streetNumber) {
         property.address.doorNumber = geocodeResult.streetNumber;
-        console.log('Door number from reverse geocoding:', geocodeResult.streetNumber);
+        logger.info(`Door number from reverse geocoding: ${geocodeResult.streetNumber}`, 'analyze');
       }
 
       // Also update street name if we got a better one
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
         coordinates.longitude,
         3
       );
-      console.log('Nearest train stations:', trainStations);
+      logger.info(`Nearest train stations: ${trainStations?.length || 0} found`, 'analyze');
 
       if (trainStations && trainStations.length > 0) {
         const walkingResults = await getWalkingDistances(
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
         });
 
         if (walkingResults) {
-          console.log('Rail walking times fetched from Google Maps');
+          logger.info('Rail walking times fetched from Google Maps', 'analyze');
         }
       } else {
         property.nearestStations = trainStations; // null (API error) or [] (none found)
@@ -133,7 +134,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
         });
 
         if (tubeWalkingResults) {
-          console.log('Tube walking times fetched from Google Maps');
+          logger.info('Tube walking times fetched from Google Maps', 'analyze');
         }
       } else {
         property.nearestTubeStations = tubeStations; // null (API error) or [] (none found)
@@ -149,10 +150,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       },
     };
     propertyCache.set(cacheKey, responseData, TTL.PROPERTY);
-    console.log(`[Analyze] Cached for ${TTL.PROPERTY / 3600}h | ${cacheKey}`);
+    logger.info(`Cached for ${TTL.PROPERTY / 3600}h | ${cacheKey}`, 'analyze');
     return NextResponse.json(responseData);
   } catch (error) {
-    console.error('Analysis error:', error);
+    logger.error(`Analysis error: ${error}`, 'analyze');
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

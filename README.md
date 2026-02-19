@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# UK Property Analyzer
 
-## Getting Started
+A web application that analyzes UK property listings from Rightmove, enriching them with nearby rail/tube stations, school attendance data, and AI-powered insights.
 
-First, run the development server:
+## What You'll Get
+
+Paste any Rightmove property URL and receive a comprehensive report including:
+
+- **Property Details** — Price, bedrooms, bathrooms, square footage, property type
+- **Price per Sq Ft** — Calculated automatically
+- **EPC Rating** — Energy Performance Certificate with visual graph
+- **Nearest Rail Stations** — Walking times from Google Maps
+- **Nearest Tube Stations** — For London properties
+- **Schools Attended** — Which primary and secondary schools local children actually attend (from Locrating)
+- **AI Analysis** — Two summary reports from different AI models (Gemini & Claude)
+
+## Data Sources
+
+| Data | Source |
+|------|--------|
+| Property details, price, photos | Rightmove |
+| Coordinates & door number | Postcodes.io + Google Reverse Geocoding |
+| Rail & tube stations | Google Places API |
+| Walking distances & times | Google Distance Matrix API |
+| School attendance data | Locrating.com (LSOA/neighbourhood data) |
+| AI summaries | OpenRouter (Google Gemini, Anthropic Claude) |
+
+## Installation
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/monkeydust/uk-property-analyzer.git
+cd uk-property-analyzer
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Set up environment variables
+
+Create a `.env` file in the root directory:
+
+```env
+# Google Maps (required for stations & geocoding)
+GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+
+# OpenRouter (required for AI summaries)
+OPENROUTER_API_KEY=your_openrouter_api_key
+
+# Optional: Auth for protected routes
+AUTH_SECRET=your_auth_secret
+```
+
+### 4. Initialize the database
+
+```bash
+npx prisma generate
+npx prisma db push
+```
+
+### 5. Run the development server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## API Keys Needed
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Google Maps API** — Enable Places API, Geocoding API, and Distance Matrix API
+- **OpenRouter API** — Free tier available at [openrouter.ai](https://openrouter.ai)
 
-## Learn More
+## Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Next.js 16 · React 19 · TypeScript · Tailwind CSS · Prisma · SQLite · Playwright · Cheerio

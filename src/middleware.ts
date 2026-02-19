@@ -3,15 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow login page, auth API, and static assets through
+  // Allow login page, auth API, static assets, and API endpoints through
   if (
     pathname === '/login' ||
-    pathname.startsWith('/api/auth') ||
-    pathname.startsWith('/api/pwa-icon') ||
-    pathname.startsWith('/api/logs') ||
-    pathname.startsWith('/api/analyze') ||
-    pathname.startsWith('/api/schools') ||
-    pathname.startsWith('/api/ai-analysis') ||
+    pathname.startsWith('/api/') ||
     pathname.startsWith('/_next') ||
     pathname === '/manifest.json' ||
     pathname === '/sw.js' ||

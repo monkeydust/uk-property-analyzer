@@ -17,3 +17,20 @@ model Analysis {
 
   @@index([sourceUrl])
 }
+
+model SavedProperty {
+  id            String   @id // Property ID from the scraped data
+  url           String
+  timestamp     DateTime @default(now())
+  propertyData  String   // JSON: Property object
+  schoolsData   String?  // JSON: AttendedSchoolsResult or null
+  aiAnalysis    String?  // AI analysis text
+  aiModel       String?  // AI model used
+  ai2Analysis   String?  // Second AI analysis (optional)
+  ai2Model      String?  // Second AI model used (optional)
+  commuteTimes  String   // JSON array
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([timestamp])
+}

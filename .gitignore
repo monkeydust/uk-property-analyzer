@@ -42,5 +42,9 @@ next-env.d.ts
 
 /src/generated/prisma
 
+# database
+/prisma/*.db
+/prisma/*.db-journal
+
 # Locrating debug output (captured HTML + cookies)
 /debug/

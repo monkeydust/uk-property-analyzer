@@ -24,6 +24,13 @@ export const metadata: Metadata = {
   description: "Extract property data from Rightmove listings",
   manifest: "/manifest.json",
   themeColor: "#0f172a",
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
 };
 
 export default function RootLayout({

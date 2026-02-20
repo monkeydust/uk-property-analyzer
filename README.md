@@ -14,9 +14,13 @@ Paste any Rightmove property URL and receive a comprehensive report including:
 - **Commute Comparison** — Transit time to Bloomberg HQ and UCL, benchmarked against your current address
 - **Schools Attended** — Which primary and secondary schools local children actually attend (from Locrating)
 - **AI Summary Report** — Analysis from Claude Opus covering value, location, transport, and schools
-- **Saved Properties** — All analyzed properties are auto-saved and accessible from the dashboard
-- **Dark Mode** — Toggle between light and dark themes (persists across sessions)
-- **Activity Log** — View server-side logs for each analysis
+- **Saved Properties** — All analyzed properties are auto-saved to a central SQLite database and accessible from the dashboard
+- **Parallel Processing** — Multiple searches can be processed in the background simultaneously
+- **Mobile Optimized** — Touch-friendly UI with clear actions and mobile-first navigation
+- **Modern UI** — Clean, modern aesthetic with dark mode support and custom branding
+- **Direct Links** — Click any property image to go straight to the Rightmove listing
+- **Activity Log** — View real-time server-side logs for each analysis
+- **Navigation** — Easy switching between the property dashboard and detailed analysis views
 
 ## Data Sources
 

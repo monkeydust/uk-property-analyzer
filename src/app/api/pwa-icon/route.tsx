@@ -12,32 +12,39 @@ export async function GET(request: NextRequest) {
         style={{
           width: size,
           height: size,
-          background: 'linear-gradient(135deg, #0f172a 0%, #0d9488 100%)',
+          background: 'linear-gradient(135deg, #4F46E5 0%, #06B6D4 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          flexDirection: 'column',
-          gap: size * 0.02,
+          position: 'relative',
         }}
       >
-        <div
+        {/* Modern House Silhouette */}
+        <svg
+          width={size * 0.6}
+          height={size * 0.6}
+          viewBox="0 0 24 24"
+          fill="white"
+          style={{ display: 'flex' }}
+        >
+          <path d="M12 3L3 12H6V21H18V12H21L12 3Z" />
+        </svg>
+
+        {/* Sparkle */}
+        <svg
+          width={size * 0.25}
+          height={size * 0.25}
+          viewBox="0 0 24 24"
+          fill="#FDE047"
           style={{
-            fontSize: size * 0.3,
-            fontWeight: 700,
-            color: 'white',
-            letterSpacing: '-0.02em',
+            position: 'absolute',
+            top: size * 0.15,
+            right: size * 0.15,
+            display: 'flex',
           }}
         >
-          PA
-        </div>
-        <div
-          style={{
-            width: size * 0.4,
-            height: size * 0.04,
-            background: '#2dd4bf',
-            borderRadius: size * 0.02,
-          }}
-        />
+          <path d="M12 1L13.5 9.5L22 11L13.5 12.5L12 21L10.5 12.5L2 11L10.5 9.5L12 1Z" />
+        </svg>
       </div>
     ),
     { width: size, height: size },

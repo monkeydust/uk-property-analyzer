@@ -1,6 +1,6 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { SavedProperty, formatTimeAgo } from '@/lib/storage';
 
 interface PropertyCardProps {
@@ -24,7 +24,7 @@ export function PropertyCard({ property, onClick, onDelete }: PropertyCardProps)
   return (
     <div 
       onClick={onClick}
-      className="group flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border border-slate-200 dark:border-slate-700"
+      className="group flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border border-slate-200 dark:border-slate-700 active:bg-slate-50 dark:active:bg-slate-800"
     >
       {/* Thumbnail */}
       <div className="flex-shrink-0 w-20 h-14 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800">
@@ -50,13 +50,15 @@ export function PropertyCard({ property, onClick, onDelete }: PropertyCardProps)
       </div>
       
       {/* Delete Button */}
-      <button
-        onClick={onDelete}
-        className="flex-shrink-0 p-2.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 sm:opacity-100"
-        aria-label="Delete property"
-      >
-        <X className="w-5 h-5" />
-      </button>
+      <div className="flex-shrink-0 border-l border-slate-100 dark:border-slate-800 pl-1 ml-1">
+        <button
+          onClick={onDelete}
+          className="p-3 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 dark:active:bg-red-900/40 transition-all opacity-100"
+          aria-label="Delete property"
+        >
+          <Trash2 className="w-5 h-5" />
+        </button>
+      </div>
     </div>
   );
 }

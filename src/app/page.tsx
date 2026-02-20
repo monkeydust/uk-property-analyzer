@@ -111,6 +111,10 @@ function HomeContent() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiModel, setAiModel] = useState<string | null>(null);
 
+  // Ref to track the currently active property ID to avoid UI state collisions
+  // from background tasks processing previous searches
+  const activePropertyIdRef = useRef<string | null>(null);
+
   // Saved properties state
   const [savedProperties, setSavedProperties] = useState<SavedProperty[]>([]);
   const [view, setView] = useState<'dashboard' | 'analysis'>('dashboard');
@@ -133,11 +137,16 @@ function HomeContent() {
 
   // Load saved properties on mount
   useEffect(() => {
-    setSavedProperties(getSavedProperties());
+    const loadSavedProperties = async () => {
+      const properties = await getSavedProperties();
+      setSavedProperties(properties);
+    };
+    loadSavedProperties();
   }, []);
 
   const handlePropertyClick = (property: SavedProperty) => {
     setSelectedProperty(property);
+    activePropertyIdRef.current = property.id;
     setResult({
       property: property.data.property,
       postcode: property.data.property.address.postcode,
@@ -149,19 +158,20 @@ function HomeContent() {
     setView('analysis');
   };
 
-  const handleDeleteProperty = (e: React.MouseEvent, property: SavedProperty) => {
+  const handleDeleteProperty = async (e: React.MouseEvent, property: SavedProperty) => {
     e.stopPropagation();
-    const deleted = deleteProperty(property.id);
+    const deleted = await deleteProperty(property.id);
     if (deleted) {
       setSavedProperties(prev => prev.filter(p => p.id !== property.id));
       setUndoState({ show: true, deletedProperty: deleted });
     }
   };
 
-  const handleUndo = () => {
+  const handleUndo = async () => {
     if (undoState.deletedProperty) {
-      restoreProperty(undoState.deletedProperty);
-      setSavedProperties(getSavedProperties());
+      await restoreProperty(undoState.deletedProperty);
+      const properties = await getSavedProperties();
+      setSavedProperties(properties);
       setUndoState({ show: false, deletedProperty: null });
     }
   };
@@ -182,7 +192,7 @@ function HomeContent() {
     setError(null);
   };
 
-  const handleBackToDashboard = () => {
+  const handleBackToDashboard = async () => {
     setView('dashboard');
     setSelectedProperty(null);
     setResult(null);
@@ -192,6 +202,10 @@ function HomeContent() {
     setAiError(null);
     setError(null);
     setUrl('');
+    
+    // Refresh the list when going back to dashboard
+    const properties = await getSavedProperties();
+    setSavedProperties(properties);
   };
 
   const handleRefresh = async () => {
@@ -237,6 +251,21 @@ function HomeContent() {
         return;
       }
 
+      // 1. Mark as current and initial save (so it shows up on dashboard immediately)
+      const property = data.data.property;
+      activePropertyIdRef.current = property.id;
+      
+      saveProperty(property.id, property.sourceUrl, {
+        property,
+        schools: null,
+        aiAnalysis: null,
+        aiModel: null,
+        commuteTimes: [],
+      }).then(() => {
+        getSavedProperties().then(setSavedProperties);
+      });
+
+      // 2. Update UI
       setResult({
         property: data.data.property,
         postcode: data.data.postcode,
@@ -309,6 +338,10 @@ function HomeContent() {
 
     if (!fullAddress || fullAddress.length < 3) return;
 
+    const propertyId = result.property.id;
+    const propertyUrl = result.property.sourceUrl;
+    const initialProperty = result.property;
+
     setSchoolsLoading(true);
     setSchoolsError(null);
     setSchoolsData(null);
@@ -324,16 +357,44 @@ function HomeContent() {
       .then((data: AttendedSchoolsResult & { logs?: { id: string; timestamp: string; level: string; message: string; source?: string }[] }) => {
         if (data.logs) mergeLogs(data.logs);
         if (data.success) {
-          setSchoolsData(data);
+          // 1. Save results to DB for this specific property
+          saveProperty(propertyId, propertyUrl, {
+            property: initialProperty,
+            schools: data,
+            aiAnalysis: aiAnalysis,
+            aiModel: aiModel,
+            commuteTimes: initialProperty.commuteTimes || [],
+          }).then(() => {
+            getSavedProperties().then(setSavedProperties);
+          });
+
+          // 2. Update UI ONLY if active
+          if (activePropertyIdRef.current === propertyId) {
+            setSchoolsData(data);
+          }
         } else {
-          setSchoolsError(data.error || 'Failed to fetch school data');
+          if (activePropertyIdRef.current === propertyId) {
+            setSchoolsError(data.error || 'Failed to fetch school data');
+          }
         }
       })
-      .catch(() => setSchoolsError('Network error fetching school data'))
-      .finally(() => setSchoolsLoading(false));
+      .catch(() => {
+        if (activePropertyIdRef.current === propertyId) {
+          setSchoolsError('Network error fetching school data');
+        }
+      })
+      .finally(() => {
+        if (activePropertyIdRef.current === propertyId) {
+          setSchoolsLoading(false);
+        }
+      });
 
     // Fetch stations and commute in parallel (if we have coordinates)
     if (coords) {
+      const propertyId = result.property.id;
+      const propertyUrl = result.property.sourceUrl;
+      const initialProperty = result.property;
+
       // Stations
       setStationsLoading(true);
       fetch(`/api/stations?lat=${coords.latitude}&lng=${coords.longitude}`)
@@ -341,18 +402,40 @@ function HomeContent() {
         .then(data => {
           if (data.logs) mergeLogs(data.logs);
           if (data.success) {
-            setResult(prev => prev ? {
-              ...prev,
-              property: {
-                ...prev.property,
-                nearestStations: data.nearestStations,
-                nearestTubeStations: data.nearestTubeStations,
-              }
-            } : prev);
+            // 1. Prepare updated data
+            const updatedProperty = {
+              ...initialProperty,
+              nearestStations: data.nearestStations,
+              nearestTubeStations: data.nearestTubeStations,
+            };
+
+            // 2. Save updated data to DB (background process continues)
+            saveProperty(propertyId, propertyUrl, {
+              property: updatedProperty,
+              schools: schoolsData,
+              aiAnalysis: aiAnalysis,
+              aiModel: aiModel,
+              commuteTimes: initialProperty.commuteTimes || [],
+            }).then(() => {
+              // Refresh dashboard list
+              getSavedProperties().then(setSavedProperties);
+            });
+
+            // 3. Update UI state ONLY if this is still the active property
+            if (activePropertyIdRef.current === propertyId) {
+              setResult(prev => (prev?.property?.id === propertyId) ? {
+                ...prev,
+                property: updatedProperty
+              } : prev);
+            }
           }
         })
         .catch(() => {})
-        .finally(() => setStationsLoading(false));
+        .finally(() => {
+          if (activePropertyIdRef.current === propertyId) {
+            setStationsLoading(false);
+          }
+        });
 
       // Commute times
       setCommuteLoading(true);
@@ -361,17 +444,38 @@ function HomeContent() {
         .then(data => {
           if (data.logs) mergeLogs(data.logs);
           if (data.success) {
-            setResult(prev => prev ? {
-              ...prev,
-              property: {
-                ...prev.property,
-                commuteTimes: data.commuteTimes,
-              }
-            } : prev);
+            // 1. Prepare updated data
+            const updatedProperty = {
+              ...initialProperty,
+              commuteTimes: data.commuteTimes,
+            };
+
+            // 2. Save updated data to DB
+            saveProperty(propertyId, propertyUrl, {
+              property: updatedProperty,
+              schools: schoolsData,
+              aiAnalysis: aiAnalysis,
+              aiModel: aiModel,
+              commuteTimes: data.commuteTimes || [],
+            }).then(() => {
+              getSavedProperties().then(setSavedProperties);
+            });
+
+            // 3. Update UI ONLY if active
+            if (activePropertyIdRef.current === propertyId) {
+              setResult(prev => (prev?.property?.id === propertyId) ? {
+                ...prev,
+                property: updatedProperty
+              } : prev);
+            }
           }
         })
         .catch(() => {})
-        .finally(() => setCommuteLoading(false));
+        .finally(() => {
+          if (activePropertyIdRef.current === propertyId) {
+            setCommuteLoading(false);
+          }
+        });
     }
   }, [result?.property?.id]);
 
@@ -391,6 +495,11 @@ function HomeContent() {
       } : {}),
     };
 
+    const propertyId = result.property.id;
+    const propertyUrl = result.property.sourceUrl;
+    const initialProperty = result.property;
+    const initialSchools = schoolsData;
+
     // Claude Opus report
     setAiLoading(true);
     setAiError(null);
@@ -406,28 +515,45 @@ function HomeContent() {
       .then(data => {
         if (data.logs) mergeLogs(data.logs);
         if (data.success) {
-          setAiAnalysis(data.analysis);
-          setAiModel(data.model || null);
+          // 1. Save AI analysis results for this property
+          saveProperty(propertyId, propertyUrl, {
+            property: initialProperty,
+            schools: initialSchools,
+            aiAnalysis: data.analysis,
+            aiModel: data.model || null,
+            commuteTimes: initialProperty.commuteTimes || [],
+          }).then(() => {
+            getSavedProperties().then(setSavedProperties);
+          });
+
+          // 2. Update UI state ONLY if active
+          if (activePropertyIdRef.current === propertyId) {
+            setAiAnalysis(data.analysis);
+            setAiModel(data.model || null);
+          }
         } else {
-          setAiError(data.error || 'Failed to generate AI analysis');
+          if (activePropertyIdRef.current === propertyId) {
+            setAiError(data.error || 'Failed to generate AI analysis');
+          }
         }
       })
-      .catch(() => setAiError('Network error fetching AI analysis'))
+      .catch(() => {
+        if (activePropertyIdRef.current === propertyId) {
+          setAiError('Network error fetching AI analysis');
+        }
+      })
       .finally(() => {
-        setAiLoading(false);
+        if (activePropertyIdRef.current === propertyId) {
+          setAiLoading(false);
+        }
       });
-    
-    // Auto-save property
-    const propertyData = {
-      property: result.property,
-      schools: schoolsData,
-      aiAnalysis: null,
-      aiModel: null,
-      commuteTimes: result.property.commuteTimes || [],
-    };
-    saveProperty(result.property.id, result.property.sourceUrl, propertyData);
-    setSavedProperties(getSavedProperties());
   }, [result, schoolsData, schoolsError, schoolsLoading]);
+
+  // Clear input and refocus
+  const handleClear = () => {
+    setUrl('');
+    inputRef.current?.focus();
+  };
 
   // Paste from clipboard button
   const handlePasteButton = async () => {
@@ -452,12 +578,6 @@ function HomeContent() {
     }
   };
 
-  // Clear input and refocus
-  const handleClear = () => {
-    setUrl('');
-    inputRef.current?.focus();
-  };
-
   const copyJson = async () => {
     if (result) {
       const fullData = {
@@ -476,29 +596,31 @@ function HomeContent() {
         <header className="mb-6 sm:mb-8">
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
-              {view === 'analysis' && selectedProperty ? (
-                <button
-                  onClick={handleBackToDashboard}
-                  className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors mb-1"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span className="text-sm">Back</span>
-                </button>
-              ) : null}
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100 font-[family-name:var(--font-playfair)] truncate">
                 UK Property Analyzer
               </h1>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {view === 'analysis' && result && (
-                <button
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  className="p-2.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
-                  title="Refresh analysis"
-                >
-                  <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                </button>
+              {view === 'analysis' && (
+                <>
+                  <button
+                    onClick={handleBackToDashboard}
+                    className="p-2.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                    title="Back to saved properties"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                  {result && (
+                    <button
+                      onClick={handleRefresh}
+                      disabled={isRefreshing}
+                      className="p-2.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                      title="Refresh analysis"
+                    >
+                      <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    </button>
+                  )}
+                </>
               )}
               <ThemeToggle />
             </div>
@@ -565,19 +687,19 @@ function HomeContent() {
                   <button
                     type="button"
                     onClick={handleClear}
-                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:text-slate-400 transition-colors"
+                    className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-full transition-colors mr-1 shadow-sm"
                     aria-label="Clear"
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-4 h-4" />
                   </button>
                 ) : clipboardAvailable ? (
                   <button
                     type="button"
                     onClick={handlePasteButton}
-                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:text-slate-400 transition-colors"
+                    className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-full transition-colors mr-1 shadow-sm"
                     aria-label="Paste from clipboard"
                   >
-                    <Clipboard className="w-5 h-5" />
+                    <Clipboard className="w-4 h-4" />
                   </button>
                 ) : null}
               </div>
@@ -734,18 +856,25 @@ function HomeContent() {
               {/* Right side - Property Image */}
               {result.property.images && result.property.images.length > 0 && (
                 <div className="lg:w-80 flex-shrink-0">
-                  <div className="relative w-full h-64 lg:h-full min-h-[300px] rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800">
+                  <a 
+                    href={result.property.sourceUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="block relative w-full h-64 lg:h-full min-h-[300px] rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 group"
+                    title="View on Rightmove"
+                  >
                     <img
                       src={result.property.images[0]}
                       alt="Property"
-                      className="absolute inset-0 w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
                     {result.property.images.length > 1 && (
                       <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/60 text-white text-xs rounded-full">
                         +{result.property.images.length - 1} more
                       </div>
                     )}
-                  </div>
+                  </a>
                 </div>
               )}
               </div>
@@ -789,13 +918,13 @@ function HomeContent() {
                         className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <span className="w-6 h-6 flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-700 rounded-full text-sm font-medium flex-shrink-0">
+                          <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-blue-700 rounded-full text-sm font-medium flex-shrink-0">
                             {index + 1}
                           </span>
                           <div className="min-w-0">
                             <span className="font-medium text-slate-900 dark:text-slate-100 block truncate">{station.name}</span>
                             {station.operators && station.operators.length > 0 && (
-                              <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                              <span className="inline-block mt-1 px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs rounded-full font-medium">
                                 {station.operators.join(', ')}
                               </span>
                             )}

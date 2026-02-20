@@ -1,18 +1,22 @@
 # UK Property Analyzer
 
-A web application that analyzes UK property listings from Rightmove, enriching them with nearby rail/tube stations, school attendance data, and AI-powered insights.
+A web application that analyzes UK property listings from Rightmove, enriching them with nearby rail/tube stations, school attendance data, commute time comparisons, and an AI-powered summary report.
 
 ## What You'll Get
 
 Paste any Rightmove property URL and receive a comprehensive report including:
 
-- **Property Details** — Price, bedrooms, bathrooms, square footage, property type
-- **Price per Sq Ft** — Calculated automatically
+- **Property Summary** — Price, bedrooms, bathrooms, square footage, property type, and main property photo
+- **Price per sqft** — Calculated automatically
 - **EPC Rating** — Energy Performance Certificate with visual graph
-- **Nearest Rail Stations** — Walking times from Google Maps
-- **Nearest Tube Stations** — For London properties
+- **Nearest Rail Stations** — Walking times from Google Maps with train operator badges (e.g. Thameslink, GWR)
+- **Nearest Tube Stations** — With colour-coded line badges (e.g. Northern, Victoria, Elizabeth)
+- **Commute Comparison** — Transit time to Bloomberg HQ and UCL, benchmarked against your current address
 - **Schools Attended** — Which primary and secondary schools local children actually attend (from Locrating)
-- **AI Analysis** — Two summary reports from different AI models (Gemini & Claude)
+- **AI Summary Report** — Analysis from Claude Opus covering value, location, transport, and schools
+- **Saved Properties** — All analyzed properties are auto-saved and accessible from the dashboard
+- **Dark Mode** — Toggle between light and dark themes (persists across sessions)
+- **Activity Log** — View server-side logs for each analysis
 
 ## Data Sources
 
@@ -22,8 +26,11 @@ Paste any Rightmove property URL and receive a comprehensive report including:
 | Coordinates & door number | Postcodes.io + Google Reverse Geocoding |
 | Rail & tube stations | Google Places API |
 | Walking distances & times | Google Distance Matrix API |
+| Tube line information | TfL Unified API |
+| Train operators | Wikidata API + static lookup |
+| Commute times | Google Distance Matrix API (transit mode) |
 | School attendance data | Locrating.com (LSOA/neighbourhood data) |
-| AI summaries | OpenRouter (Google Gemini, Anthropic Claude) |
+| AI summary | OpenRouter (Anthropic Claude Opus) |
 
 ## Installation
 
@@ -45,10 +52,10 @@ npm install
 Create a `.env` file in the root directory:
 
 ```env
-# Google Maps (required for stations & geocoding)
+# Google Maps (required for stations, geocoding & commute times)
 GOOGLE_MAPS_API_KEY=your_google_maps_api_key
 
-# OpenRouter (required for AI summaries)
+# OpenRouter (required for AI summary)
 OPENROUTER_API_KEY=your_openrouter_api_key
 
 # Optional: Auth for protected routes
@@ -72,9 +79,24 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## API Keys Needed
 
-- **Google Maps API** — Enable Places API, Geocoding API, and Distance Matrix API
+- **Google Maps API** — Enable Places API, Geocoding API, Distance Matrix API, and Directions API
 - **OpenRouter API** — Free tier available at [openrouter.ai](https://openrouter.ai)
+- **TfL API** — No key required (free, unauthenticated)
+
+## Architecture
+
+The app uses parallel API calls for fast loading:
+
+```
+/api/analyze     → Property data (scrape + geocode) — ~3-5s
+  ├→ /api/stations  → Rail & tube stations (parallel)
+  ├→ /api/commute   → Commute time comparison (parallel)
+  ├→ /api/schools   → School attendance data (parallel)
+  └→ /api/ai-analysis → Claude Opus summary (after schools)
+```
+
+The Property Summary card appears within 3-5 seconds. Stations, commute times, schools, and AI analysis load independently with their own loading spinners.
 
 ## Tech Stack
 
-Next.js 16 · React 19 · TypeScript · Tailwind CSS · Prisma · SQLite · Playwright · Cheerio
+Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · Prisma · SQLite · Playwright · Cheerio

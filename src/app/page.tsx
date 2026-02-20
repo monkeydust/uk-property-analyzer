@@ -82,7 +82,17 @@ function HomeContent() {
   const [ai2Model, setAi2Model] = useState<string | null>(null);
   const [logsExpanded, setLogsExpanded] = useState(false);
   const [logs, setLogs] = useState<{ id: string; timestamp: string; level: string; message: string; source?: string }[]>([]);
-  const [logsLoading, setLogsLoading] = useState(false);
+
+  // Merge new logs into state, deduplicating by id, sorted newest first
+  const mergeLogs = useCallback((newLogs: { id: string; timestamp: string; level: string; message: string; source?: string }[]) => {
+    if (!newLogs || newLogs.length === 0) return;
+    setLogs(prev => {
+      const existingIds = new Set(prev.map(l => l.id));
+      const unique = newLogs.filter(l => !existingIds.has(l.id));
+      if (unique.length === 0) return prev;
+      return [...unique, ...prev].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    });
+  }, []);
 
   const submitUrl = useCallback(async (urlToSubmit: string) => {
     if (!urlToSubmit.includes('rightmove.co.uk')) {
@@ -111,6 +121,8 @@ function HomeContent() {
 
       const data: AnalysisResponse = await response.json();
 
+      if (data.logs) mergeLogs(data.logs);
+
       if (!data.success || !data.data) {
         setError(data.error || 'Failed to analyze property');
         return;
@@ -120,16 +132,12 @@ function HomeContent() {
         property: data.data.property,
         postcode: data.data.postcode,
       });
-
-      if (data.logs && data.logs.length > 0) {
-        setLogs(data.logs);
-      }
     } catch {
       setError('Network error - please try again');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [mergeLogs]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,7 +212,8 @@ function HomeContent() {
 
     fetch(schoolsUrl)
       .then(res => res.json())
-      .then((data: AttendedSchoolsResult) => {
+      .then((data: AttendedSchoolsResult & { logs?: { id: string; timestamp: string; level: string; message: string; source?: string }[] }) => {
+        if (data.logs) mergeLogs(data.logs);
         if (data.success) {
           setSchoolsData(data);
         } else {
@@ -240,38 +249,14 @@ function HomeContent() {
     fetch('/api/ai-analysis', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ propertyJson: combinedJson, model: 'google/gemini-3-flash-preview' }),
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setAiAnalysis(data.analysis);
-          setAiModel(data.model || null);
-          if (data.logs) setLogs(prev => [...data.logs, ...prev]);
-        } else {
-          setAiError(data.error || 'Failed to generate AI analysis');
-        }
-      })
-      .catch(() => setAiError('Network error fetching AI analysis'))
-      .finally(() => setAiLoading(false));
-
-    // OpenAI report
-    setAi2Loading(true);
-    setAi2Error(null);
-    setAi2Analysis(null);
-    setAi2Model(null);
-
-    fetch('/api/ai-analysis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ propertyJson: combinedJson, model: 'anthropic/claude-opus-4.6' }),
     })
       .then(res => res.json())
       .then(data => {
+        if (data.logs) mergeLogs(data.logs);
         if (data.success) {
           setAi2Analysis(data.analysis);
           setAi2Model(data.model || null);
-          if (data.logs) setLogs(prev => [...data.logs, ...prev]);
         } else {
           setAi2Error(data.error || 'Failed to generate AI analysis');
         }
@@ -279,33 +264,6 @@ function HomeContent() {
       .catch(() => setAi2Error('Network error fetching AI analysis'))
       .finally(() => setAi2Loading(false));
   }, [result, schoolsData, schoolsError, schoolsLoading]);
-
-  // Fetch logs when expanded
-  useEffect(() => {
-    if (!logsExpanded) return;
-    setLogsLoading(true);
-    fetch('/api/logs')
-      .then(res => res.json())
-      .then(data => {
-        setLogs(data.logs || []);
-      })
-      .catch(() => setLogs([]))
-      .finally(() => setLogsLoading(false));
-  }, [logsExpanded]);
-
-  // Poll for new logs when there's an active request
-  useEffect(() => {
-    if (!loading && !schoolsLoading && !aiLoading && !ai2Loading) return;
-    const interval = setInterval(() => {
-      if (logsExpanded) {
-        fetch('/api/logs')
-          .then(res => res.json())
-          .then(data => setLogs(data.logs || []))
-          .catch(() => {});
-      }
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [loading, schoolsLoading, aiLoading, ai2Loading, logsExpanded]);
 
   // Paste from clipboard button
   const handlePasteButton = async () => {
@@ -1166,8 +1124,7 @@ function HomeContent() {
                   <span
                     onClick={(e) => {
                       e.stopPropagation();
-                      fetch('/api/logs', { method: 'DELETE' })
-                        .then(() => setLogs([]));
+                      setLogs([]);
                     }}
                     className="px-3 py-1 text-sm bg-slate-700 hover:bg-slate-600 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
                   >
@@ -1179,12 +1136,7 @@ function HomeContent() {
 
               {logsExpanded && (
                 <div className="px-6 pb-6 max-h-96 overflow-y-auto">
-                  {logsLoading ? (
-                    <div className="flex items-center justify-center gap-3 py-8 text-slate-400">
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span className="text-sm">Loading logs...</span>
-                    </div>
-                  ) : logs.length === 0 ? (
+                  {logs.length === 0 ? (
                     <p className="text-slate-400 text-sm py-4">No activity yet</p>
                   ) : (
                     <div className="space-y-2">

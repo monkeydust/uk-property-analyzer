@@ -3,9 +3,14 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Property, AnalysisResponse, AttendedSchoolsResult } from '@/lib/types/property';
-import { Bed, Bath, Ruler, Home, MapPin, Copy, Check, ChevronDown, ChevronUp, Loader2, Zap, Train, CircleDot, HelpCircle, Clipboard, X, GraduationCap, Sparkles, FileText, Trash2 } from 'lucide-react';
+import { Bed, Bath, Ruler, Home, MapPin, Copy, Check, ChevronDown, ChevronUp, Loader2, Zap, Train, CircleDot, HelpCircle, Clipboard, X, GraduationCap, Sparkles, FileText, Trash2, Plus, ArrowLeft, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { PropertyCard } from '@/components/PropertyCard';
+import { UndoToast } from '@/components/UndoToast';
+import { getSavedProperties, saveProperty, deleteProperty, restoreProperty } from '@/lib/storage';
+import type { SavedProperty } from '@/lib/storage';
 
 // EPC rating colors (A=dark green, G=red)
 function getEpcColor(rating: string): string {
@@ -78,7 +83,7 @@ function getLineBadgeStyle(line: string): { bg: string; text: string } {
   // For dark colors, use white text; for light colors, use dark text
   const darkLines = ['Northern', 'Piccadilly', 'Jubilee', 'Metropolitan', 'Bakerloo', 'Central', 'District', 'Elizabeth'];
   const isDark = darkLines.includes(line) || color === '#000000' || color === '#00095B' || color === '#9B0056';
-  return { bg: color, text: isDark ? 'text-white' : 'text-slate-900' };
+  return { bg: color, text: isDark ? 'text-white' : 'text-slate-900 dark:text-slate-100' };
 }
 
 function HomeContent() {
@@ -99,14 +104,19 @@ function HomeContent() {
   const [primaryExpanded, setPrimaryExpanded] = useState(true);
   const [secondaryMoreExpanded, setSecondaryMoreExpanded] = useState(false);
   const [primaryMoreExpanded, setPrimaryMoreExpanded] = useState(false);
+  const [stationsLoading, setStationsLoading] = useState(false);
+  const [commuteLoading, setCommuteLoading] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiModel, setAiModel] = useState<string | null>(null);
-  const [ai2Analysis, setAi2Analysis] = useState<string | null>(null);
-  const [ai2Loading, setAi2Loading] = useState(false);
-  const [ai2Error, setAi2Error] = useState<string | null>(null);
-  const [ai2Model, setAi2Model] = useState<string | null>(null);
+
+  // Saved properties state
+  const [savedProperties, setSavedProperties] = useState<SavedProperty[]>([]);
+  const [view, setView] = useState<'dashboard' | 'analysis'>('dashboard');
+  const [selectedProperty, setSelectedProperty] = useState<SavedProperty | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [undoState, setUndoState] = useState<{ show: boolean; deletedProperty: SavedProperty | null }>({ show: false, deletedProperty: null });
   const [logsExpanded, setLogsExpanded] = useState(false);
   const [logs, setLogs] = useState<{ id: string; timestamp: string; level: string; message: string; source?: string }[]>([]);
 
@@ -121,6 +131,81 @@ function HomeContent() {
     });
   }, []);
 
+  // Load saved properties on mount
+  useEffect(() => {
+    setSavedProperties(getSavedProperties());
+  }, []);
+
+  const handlePropertyClick = (property: SavedProperty) => {
+    setSelectedProperty(property);
+    setResult({
+      property: property.data.property,
+      postcode: property.data.property.address.postcode,
+    });
+    setSchoolsData(property.data.schools);
+    setAiAnalysis(property.data.aiAnalysis);
+    setAiModel(property.data.aiModel);
+
+    setView('analysis');
+  };
+
+  const handleDeleteProperty = (e: React.MouseEvent, property: SavedProperty) => {
+    e.stopPropagation();
+    const deleted = deleteProperty(property.id);
+    if (deleted) {
+      setSavedProperties(prev => prev.filter(p => p.id !== property.id));
+      setUndoState({ show: true, deletedProperty: deleted });
+    }
+  };
+
+  const handleUndo = () => {
+    if (undoState.deletedProperty) {
+      restoreProperty(undoState.deletedProperty);
+      setSavedProperties(getSavedProperties());
+      setUndoState({ show: false, deletedProperty: null });
+    }
+  };
+
+  const handleDismissUndo = () => {
+    setUndoState({ show: false, deletedProperty: null });
+  };
+
+  const handleNewAnalysis = () => {
+    setView('analysis');
+    setSelectedProperty(null);
+    setUrl('');
+    setResult(null);
+    setSchoolsData(null);
+    setSchoolsError(null);
+    setAiAnalysis(null);
+    setAiError(null);
+    setError(null);
+  };
+
+  const handleBackToDashboard = () => {
+    setView('dashboard');
+    setSelectedProperty(null);
+    setResult(null);
+    setSchoolsData(null);
+    setSchoolsError(null);
+    setAiAnalysis(null);
+    setAiError(null);
+    setError(null);
+    setUrl('');
+  };
+
+  const handleRefresh = async () => {
+    if (!result?.property?.sourceUrl) return;
+    setIsRefreshing(true);
+    setSchoolsData(null);
+    setSchoolsError(null);
+    setAiAnalysis(null);
+    setAiError(null);
+    setLogs([]);
+    await submitUrl(result.property.sourceUrl);
+    setIsRefreshing(false);
+  };
+
   const submitUrl = useCallback(async (urlToSubmit: string) => {
     if (!urlToSubmit.includes('rightmove.co.uk')) {
       setError('Please enter a valid Rightmove URL');
@@ -134,9 +219,6 @@ function HomeContent() {
     setAiAnalysis(null);
     setAiError(null);
     setAiLoading(false);
-    setAi2Analysis(null);
-    setAi2Error(null);
-    setAi2Loading(false);
     setLoading(true);
 
     try {
@@ -249,7 +331,49 @@ function HomeContent() {
       })
       .catch(() => setSchoolsError('Network error fetching school data'))
       .finally(() => setSchoolsLoading(false));
-  }, [result]);
+
+    // Fetch stations and commute in parallel (if we have coordinates)
+    if (coords) {
+      // Stations
+      setStationsLoading(true);
+      fetch(`/api/stations?lat=${coords.latitude}&lng=${coords.longitude}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.logs) mergeLogs(data.logs);
+          if (data.success) {
+            setResult(prev => prev ? {
+              ...prev,
+              property: {
+                ...prev.property,
+                nearestStations: data.nearestStations,
+                nearestTubeStations: data.nearestTubeStations,
+              }
+            } : prev);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setStationsLoading(false));
+
+      // Commute times
+      setCommuteLoading(true);
+      fetch(`/api/commute?lat=${coords.latitude}&lng=${coords.longitude}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.logs) mergeLogs(data.logs);
+          if (data.success) {
+            setResult(prev => prev ? {
+              ...prev,
+              property: {
+                ...prev.property,
+                commuteTimes: data.commuteTimes,
+              }
+            } : prev);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setCommuteLoading(false));
+    }
+  }, [result?.property?.id]);
 
   // Fetch AI analyses when property + schools data are ready (or schools failed)
   useEffect(() => {
@@ -267,7 +391,7 @@ function HomeContent() {
       } : {}),
     };
 
-    // Gemini report
+    // Claude Opus report
     setAiLoading(true);
     setAiError(null);
     setAiAnalysis(null);
@@ -282,14 +406,27 @@ function HomeContent() {
       .then(data => {
         if (data.logs) mergeLogs(data.logs);
         if (data.success) {
-          setAi2Analysis(data.analysis);
-          setAi2Model(data.model || null);
+          setAiAnalysis(data.analysis);
+          setAiModel(data.model || null);
         } else {
-          setAi2Error(data.error || 'Failed to generate AI analysis');
+          setAiError(data.error || 'Failed to generate AI analysis');
         }
       })
-      .catch(() => setAi2Error('Network error fetching AI analysis'))
-      .finally(() => setAi2Loading(false));
+      .catch(() => setAiError('Network error fetching AI analysis'))
+      .finally(() => {
+        setAiLoading(false);
+      });
+    
+    // Auto-save property
+    const propertyData = {
+      property: result.property,
+      schools: schoolsData,
+      aiAnalysis: null,
+      aiModel: null,
+      commuteTimes: result.property.commuteTimes || [],
+    };
+    saveProperty(result.property.id, result.property.sourceUrl, propertyData);
+    setSavedProperties(getSavedProperties());
   }, [result, schoolsData, schoolsError, schoolsLoading]);
 
   // Paste from clipboard button
@@ -334,18 +471,81 @@ function HomeContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4 sm:py-12">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 py-4 sm:py-8 px-4 transition-colors duration-300">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <header className="text-center mb-8 sm:mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-2">
-            UK Property Analyzer
-          </h1>
-          <p className="text-slate-600">
-            Paste a Rightmove URL to extract property data and postcode
+        <header className="mb-6 sm:mb-8">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              {view === 'analysis' && selectedProperty ? (
+                <button
+                  onClick={handleBackToDashboard}
+                  className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors mb-1"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="text-sm">Back</span>
+                </button>
+              ) : null}
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100 font-[family-name:var(--font-playfair)] truncate">
+                UK Property Analyzer
+              </h1>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {view === 'analysis' && result && (
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="p-2.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                  title="Refresh analysis"
+                >
+                  <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
+              )}
+              <ThemeToggle />
+            </div>
+          </div>
+          <p className="text-slate-600 dark:text-slate-400 mt-2 text-sm sm:text-base">
+            {view === 'dashboard'
+              ? `${savedProperties.length} saved propert${savedProperties.length === 1 ? 'y' : 'ies'}`
+              : 'Paste a Rightmove URL to extract and analyze property data'}
           </p>
         </header>
 
+        {/* Dashboard View */}
+        {view === 'dashboard' && (
+          <div className="space-y-6">
+            <button
+              onClick={handleNewAnalysis}
+              className="w-full p-4 bg-white dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl hover:border-teal-500 dark:hover:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-900/10 transition-all group"
+            >
+              <div className="flex items-center justify-center gap-3 text-slate-600 dark:text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400">
+                <Plus className="w-6 h-6" />
+                <span className="font-medium">Analyze New Property</span>
+              </div>
+            </button>
+            {savedProperties.length > 0 ? (
+              <div className="space-y-3">
+                {savedProperties.map((savedProp) => (
+                  <PropertyCard
+                    key={savedProp.id}
+                    property={savedProp}
+                    onClick={() => handlePropertyClick(savedProp)}
+                    onDelete={(e) => handleDeleteProperty(e, savedProp)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Home className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+                <p className="text-slate-500 dark:text-slate-400 mb-2">No saved properties yet</p>
+                <p className="text-slate-400 dark:text-slate-500 text-sm">Start by analyzing a property above</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Analysis View */}
+        {view === 'analysis' && (
+          <div>
         {/* Search Form */}
         <form onSubmit={handleSubmit} className="mb-8">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -357,7 +557,7 @@ function HomeContent() {
                 onChange={(e) => setUrl(e.target.value)}
                 onPaste={handleNativePaste}
                 placeholder="Paste a Rightmove link..."
-                className="w-full pl-4 pr-20 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-slate-900 placeholder:text-slate-400 shadow-sm"
+                className="w-full pl-4 pr-20 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 shadow-sm"
                 disabled={loading}
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -365,7 +565,7 @@ function HomeContent() {
                   <button
                     type="button"
                     onClick={handleClear}
-                    className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors"
+                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:text-slate-400 transition-colors"
                     aria-label="Clear"
                   >
                     <X className="w-5 h-5" />
@@ -374,7 +574,7 @@ function HomeContent() {
                   <button
                     type="button"
                     onClick={handlePasteButton}
-                    className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors"
+                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:text-slate-400 transition-colors"
                     aria-label="Paste from clipboard"
                   >
                     <Clipboard className="w-5 h-5" />
@@ -410,15 +610,17 @@ function HomeContent() {
         {result && (
           <div className="space-y-6">
             {/* Property Summary Card */}
-            <div className="p-6 bg-white rounded-xl shadow-md">
-              <h2 className="text-lg font-semibold text-slate-800 mb-4">Property Summary</h2>
+            <div className="p-6 bg-white dark:bg-slate-900 rounded-xl shadow-md">
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Property Summary</h2>
 
+              <div className="flex flex-col lg:flex-row gap-6">
+              <div className="flex-1">
               {/* Full Address - Prominent at top */}
               {result.property.address.displayAddress && (
-                <div className="mb-4 pb-4 border-b border-slate-100">
+                <div className="mb-4 pb-4 border-b border-slate-100 dark:border-slate-800">
                   <div className="flex items-start gap-3">
-                    <MapPin className="w-5 h-5 text-slate-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-lg font-semibold text-slate-900">
+                    <MapPin className="w-5 h-5 text-slate-500 dark:text-slate-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                       {result.property.address.doorNumber && (
                         <span>{result.property.address.doorNumber} </span>
                       )}
@@ -446,106 +648,137 @@ function HomeContent() {
               {/* Stats Grid - 4 columns on desktop, 2 on mobile */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {/* Row 1 */}
-                <div className="p-4 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-500 mb-1">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
                     <span className="text-lg">£</span>
                     <span className="text-sm">Price</span>
                   </div>
-                  <p className="text-xl font-bold text-slate-900">
+                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
                     {result.property.price
                       ? `${result.property.price.toLocaleString()}`
                       : 'N/A'}
                     {result.property.listingType === 'rent' && (
-                      <span className="text-sm font-normal text-slate-500"> pcm</span>
+                      <span className="text-sm font-normal text-slate-500 dark:text-slate-400"> pcm</span>
                     )}
                   </p>
                 </div>
 
-                <div className="p-4 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-500 mb-1">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
                     <Bed className="w-4 h-4" />
                     <span className="text-sm">Bedrooms</span>
                   </div>
-                  <p className="text-xl font-bold text-slate-900">
+                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
                     {result.property.bedrooms ?? 'N/A'}
                   </p>
                 </div>
 
-                <div className="p-4 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-500 mb-1">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
                     <Bath className="w-4 h-4" />
                     <span className="text-sm">Bathrooms</span>
                   </div>
-                  <p className="text-xl font-bold text-slate-900">
+                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
                     {result.property.bathrooms ?? 'N/A'}
                   </p>
                 </div>
 
                 {/* Row 2 */}
-                <div className="p-4 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-500 mb-1">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
                     <Home className="w-4 h-4" />
                     <span className="text-sm">Type</span>
                   </div>
-                  <p className="text-xl font-bold text-slate-900 capitalize">
+                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100 capitalize">
                     {result.property.propertyType}
                   </p>
                 </div>
 
-                <div className="p-4 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-500 mb-1">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
                     <Ruler className="w-4 h-4" />
                     <span className="text-sm">Size</span>
                   </div>
-                  <p className="text-xl font-bold text-slate-900">
+                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
                     {result.property.squareFootage
-                      ? `${result.property.squareFootage.toLocaleString()} sq ft`
+                      ? `${result.property.squareFootage.toLocaleString()} sqft`
                       : 'N/A'}
                   </p>
                 </div>
 
-                <div className="p-4 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-500 mb-1">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
                     <span className="text-lg">£</span>
-                    <span className="text-sm">Per Sq Ft</span>
+                    <span className="text-sm">£ per sqft</span>
                   </div>
-                  <p className="text-xl font-bold text-slate-900">
+                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
                     {result.property.pricePerSqFt
                       ? `£${result.property.pricePerSqFt.toLocaleString()}`
                       : 'N/A'}
                   </p>
                 </div>
 
-                <div className="p-4 bg-slate-50 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-500 mb-1">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
                     <Zap className="w-4 h-4" />
                     <span className="text-sm">EPC</span>
                   </div>
-                  <p className="text-xl font-bold text-slate-900">
+                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
                     {result.property.epc?.currentRating || 'N/A'}
                   </p>
                 </div>
               </div>
 
+              </div>
+
+              {/* Right side - Property Image */}
+              {result.property.images && result.property.images.length > 0 && (
+                <div className="lg:w-80 flex-shrink-0">
+                  <div className="relative w-full h-64 lg:h-full min-h-[300px] rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800">
+                    <img
+                      src={result.property.images[0]}
+                      alt="Property"
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                    {result.property.images.length > 1 && (
+                      <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/60 text-white text-xs rounded-full">
+                        +{result.property.images.length - 1} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              </div>
+
               {/* EPC Graph Image */}
               {result.property.epc?.graphUrl && (
-                <div className="pt-4 mt-4 border-t border-slate-100">
-                  <div className="flex items-center gap-2 text-slate-500 mb-3">
+                <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-3">
                     <Zap className="w-4 h-4" />
                     <span className="text-sm font-medium">EPC Certificate</span>
                   </div>
                   <img
                     src={result.property.epc.graphUrl}
                     alt="EPC Rating Graph"
-                    className="max-w-full h-auto rounded-lg border border-slate-200"
+                    className="max-w-full h-auto rounded-lg border border-slate-200 dark:border-slate-700"
                   />
                 </div>
               )}
 
+              {/* Stations Loading */}
+              {stationsLoading && (
+                <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-3 py-4 text-slate-400">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm">Finding nearby stations...</span>
+                  </div>
+                </div>
+              )}
+
               {/* Nearest Rail Stations */}
-              {result.property.nearestStations && result.property.nearestStations.length > 0 && (
-                <div className="pt-4 mt-4 border-t border-slate-100">
-                  <div className="flex items-center gap-2 text-slate-500 mb-3">
+              {!stationsLoading && result.property.nearestStations && result.property.nearestStations.length > 0 && (
+                <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-3">
                     <Train className="w-4 h-4" />
                     <span className="text-sm font-medium">Nearest Rail Stations</span>
                   </div>
@@ -553,17 +786,17 @@ function HomeContent() {
                     {result.property.nearestStations.map((station, index) => (
                       <div
                         key={station.name}
-                        className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                        className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <span className="w-6 h-6 flex items-center justify-center bg-slate-200 text-slate-700 rounded-full text-sm font-medium flex-shrink-0">
+                          <span className="w-6 h-6 flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-700 rounded-full text-sm font-medium flex-shrink-0">
                             {index + 1}
                           </span>
                           <div className="min-w-0">
-                            <span className="font-medium text-slate-900 block truncate">{station.name}</span>
-                            {station.operator && (
+                            <span className="font-medium text-slate-900 dark:text-slate-100 block truncate">{station.name}</span>
+                            {station.operators && station.operators.length > 0 && (
                               <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
-                                {station.operator}
+                                {station.operators.join(', ')}
                               </span>
                             )}
                           </div>
@@ -571,7 +804,7 @@ function HomeContent() {
                         <div className="text-right flex-shrink-0 ml-3">
                           {station.walkingTime ? (
                             <>
-                              <span className="text-slate-900 font-medium block">
+                              <span className="text-slate-900 dark:text-slate-100 font-medium block">
                                 {station.walkingTime} min walk
                               </span>
                               <span className="text-xs text-slate-400">
@@ -593,9 +826,9 @@ function HomeContent() {
               )}
 
               {/* Nearest Tube Stations */}
-              {result.property.nearestTubeStations && result.property.nearestTubeStations.length > 0 && (
-                <div className="pt-4 mt-4 border-t border-slate-100">
-                  <div className="flex items-center gap-2 text-slate-500 mb-3">
+              {!stationsLoading && result.property.nearestTubeStations && result.property.nearestTubeStations.length > 0 && (
+                <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-3">
                     <CircleDot className="w-4 h-4" />
                     <span className="text-sm font-medium">Nearest Tube Stations</span>
                   </div>
@@ -603,14 +836,14 @@ function HomeContent() {
                     {result.property.nearestTubeStations.map((station, index) => (
                       <div
                         key={station.name}
-                        className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                        className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-blue-700 rounded-full text-sm font-medium flex-shrink-0">
                             {index + 1}
                           </span>
                           <div className="min-w-0">
-                            <span className="font-medium text-slate-900 block truncate">{station.name}</span>
+                            <span className="font-medium text-slate-900 dark:text-slate-100 block truncate">{station.name}</span>
                             {station.lines && station.lines.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {station.lines.slice(0, 4).map((line) => {
@@ -626,7 +859,7 @@ function HomeContent() {
                                   );
                                 })}
                                 {station.lines.length > 4 && (
-                                  <span className="text-xs text-slate-500">+{station.lines.length - 4}</span>
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">+{station.lines.length - 4}</span>
                                 )}
                               </div>
                             )}
@@ -635,7 +868,7 @@ function HomeContent() {
                         <div className="text-right flex-shrink-0 ml-3">
                           {station.walkingTime ? (
                             <>
-                              <span className="text-slate-900 font-medium block">
+                              <span className="text-slate-900 dark:text-slate-100 font-medium block">
                                 {station.walkingTime} min walk
                               </span>
                               <span className="text-xs text-slate-400">
@@ -657,16 +890,83 @@ function HomeContent() {
               )}
             </div>
 
-            {/* Schools Attended Section */}
-            {(schoolsLoading || schoolsData || schoolsError) && (
-              <div className="p-6 bg-white rounded-xl shadow-md">
+            {/* Commute Times Section */}
+            {commuteLoading && (
+              <div className="p-6 bg-white dark:bg-slate-900 rounded-xl shadow-md">
+                <div className="flex items-center gap-3 py-4 text-slate-400">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="text-sm">Calculating commute times...</span>
+                </div>
+              </div>
+            )}
+            {!commuteLoading && result.property.commuteTimes && result.property.commuteTimes.length > 0 && (
+              <div className="p-6 bg-white dark:bg-slate-900 rounded-xl shadow-md">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <GraduationCap className="w-5 h-5 text-slate-500" />
-                    <h2 className="text-lg font-semibold text-slate-800">Schools Attended</h2>
+                    <MapPin className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                    <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Commute Times</h2>
+                  </div>
+                  <span className="text-xs text-slate-400">Wed 6:40 AM departure</span>
+                </div>
+                
+                <div className="space-y-3">
+                  {result.property.commuteTimes.map((commute) => (
+                    <div key={commute.destination} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          commute.destination === 'Bloomberg' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'
+                        }`}>
+                          {commute.destination === 'Bloomberg' ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                              <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                            </svg>
+                          )}
+                        </div>
+                        <div>
+                          <span className="font-semibold text-slate-900 dark:text-slate-100">{commute.destination}</span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`text-sm font-medium ${
+                              commute.isFaster ? 'text-green-600' : commute.benchmarkDiffSeconds === 0 ? 'text-slate-500 dark:text-slate-400' : 'text-red-500'
+                            }`}>
+                              {commute.isFaster ? '✓' : commute.benchmarkDiffSeconds === 0 ? '=' : '↑'} {commute.durationText}
+                            </span>
+                            <span className="text-xs text-slate-400">arrive {commute.arrivalTime}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                          commute.isFaster 
+                            ? 'bg-green-100 text-green-700' 
+                            : commute.benchmarkDiffSeconds === 0 
+                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                              : 'bg-red-100 text-red-700'
+                        }`}>
+                          {commute.benchmarkDiffText}
+                        </span>
+                        <div className="text-xs text-slate-400 mt-1">vs 20 Woodcroft</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Schools Attended Section */}
+            {(schoolsLoading || schoolsData || schoolsError) && (
+              <div className="p-6 bg-white dark:bg-slate-900 rounded-xl shadow-md">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                    <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Schools Attended</h2>
                   </div>
                   {schoolsData?.areaName && (
-                    <span className="text-xs px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
+                    <span className="text-xs px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-full">
                       {schoolsData.areaName}
                     </span>
                   )}
@@ -701,7 +1001,7 @@ function HomeContent() {
                       <div>
                         <button
                           onClick={() => setSecondaryExpanded(!secondaryExpanded)}
-                          className="flex items-center gap-2 text-slate-500 mb-3 hover:text-slate-700 transition-colors"
+                          className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-3 hover:text-slate-700 dark:text-slate-300 transition-colors"
                         >
                           {secondaryExpanded ? (
                             <ChevronUp className="w-4 h-4" />
@@ -716,14 +1016,14 @@ function HomeContent() {
                           {top5.map((school) => (
                             <div
                               key={school.urn}
-                              className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                              className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
                             >
                               <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <span className="w-12 text-right font-bold text-slate-900 flex-shrink-0">
+                                <span className="w-12 text-right font-bold text-slate-900 dark:text-slate-100 flex-shrink-0">
                                   {school.percentage}%
                                 </span>
                                 <div className="min-w-0 flex-1">
-                                  <a href={getSchoolUrl(school.urn)} target="_blank" rel="noopener noreferrer" className="font-medium text-slate-900 hover:text-teal-700 hover:underline truncate block">
+                                  <a href={getSchoolUrl(school.urn)} target="_blank" rel="noopener noreferrer" className="font-medium text-slate-900 dark:text-slate-100 hover:text-teal-700 hover:underline truncate block">
                                     {school.name}
                                   </a>
                                   {(school.walkingTime || school.crowFliesDistance !== undefined) && (
@@ -759,7 +1059,7 @@ function HomeContent() {
                             <>
                               <button
                                 onClick={() => setSecondaryMoreExpanded(!secondaryMoreExpanded)}
-                                className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors px-3 py-1"
+                                className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-400 transition-colors px-3 py-1"
                               >
                                 {secondaryMoreExpanded ? (
                                   <ChevronUp className="w-3 h-3" />
@@ -771,14 +1071,14 @@ function HomeContent() {
                               {secondaryMoreExpanded && rest.map((school) => (
                                 <div
                                   key={school.urn}
-                                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                                  className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
                                 >
                                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                                    <span className="w-12 text-right font-bold text-slate-900 flex-shrink-0">
+                                    <span className="w-12 text-right font-bold text-slate-900 dark:text-slate-100 flex-shrink-0">
                                       {school.percentage}%
                                     </span>
                                     <div className="min-w-0 flex-1">
-                                      <a href={getSchoolUrl(school.urn)} target="_blank" rel="noopener noreferrer" className="font-medium text-slate-900 hover:text-teal-700 hover:underline truncate block">
+                                      <a href={getSchoolUrl(school.urn)} target="_blank" rel="noopener noreferrer" className="font-medium text-slate-900 dark:text-slate-100 hover:text-teal-700 hover:underline truncate block">
                                         {school.name}
                                       </a>
                                       {school.crowFliesDistance !== undefined && (
@@ -816,10 +1116,10 @@ function HomeContent() {
                       const top5 = sorted.slice(0, 5);
                       const rest = sorted.slice(5);
                       return (
-                      <div className={schoolsData.secondarySchools.length > 0 ? 'pt-2 border-t border-slate-100' : ''}>
+                      <div className={schoolsData.secondarySchools.length > 0 ? 'pt-2 border-t border-slate-100 dark:border-slate-800' : ''}>
                         <button
                           onClick={() => setPrimaryExpanded(!primaryExpanded)}
-                          className="flex items-center gap-2 text-slate-500 mb-3 hover:text-slate-700 transition-colors"
+                          className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-3 hover:text-slate-700 dark:text-slate-300 transition-colors"
                         >
                           {primaryExpanded ? (
                             <ChevronUp className="w-4 h-4" />
@@ -834,14 +1134,14 @@ function HomeContent() {
                           {top5.map((school) => (
                             <div
                               key={school.urn}
-                              className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                              className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
                             >
                               <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <span className="w-12 text-right font-bold text-slate-900 flex-shrink-0">
+                                <span className="w-12 text-right font-bold text-slate-900 dark:text-slate-100 flex-shrink-0">
                                   {school.percentage}%
                                 </span>
                                 <div className="min-w-0 flex-1">
-                                  <a href={getSchoolUrl(school.urn)} target="_blank" rel="noopener noreferrer" className="font-medium text-slate-900 hover:text-teal-700 hover:underline truncate block">
+                                  <a href={getSchoolUrl(school.urn)} target="_blank" rel="noopener noreferrer" className="font-medium text-slate-900 dark:text-slate-100 hover:text-teal-700 hover:underline truncate block">
                                     {school.name}
                                   </a>
                                   {(school.walkingTime || school.crowFliesDistance !== undefined) && (
@@ -877,7 +1177,7 @@ function HomeContent() {
                             <>
                               <button
                                 onClick={() => setPrimaryMoreExpanded(!primaryMoreExpanded)}
-                                className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 transition-colors px-3 py-1"
+                                className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-400 transition-colors px-3 py-1"
                               >
                                 {primaryMoreExpanded ? (
                                   <ChevronUp className="w-3 h-3" />
@@ -889,14 +1189,14 @@ function HomeContent() {
                               {primaryMoreExpanded && rest.map((school) => (
                                 <div
                                   key={school.urn}
-                                  className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                                  className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
                                 >
                                   <div className="flex items-center gap-3 min-w-0 flex-1">
-                                    <span className="w-12 text-right font-bold text-slate-900 flex-shrink-0">
+                                    <span className="w-12 text-right font-bold text-slate-900 dark:text-slate-100 flex-shrink-0">
                                       {school.percentage}%
                                     </span>
                                     <div className="min-w-0 flex-1">
-                                      <a href={getSchoolUrl(school.urn)} target="_blank" rel="noopener noreferrer" className="font-medium text-slate-900 hover:text-teal-700 hover:underline truncate block">
+                                      <a href={getSchoolUrl(school.urn)} target="_blank" rel="noopener noreferrer" className="font-medium text-slate-900 dark:text-slate-100 hover:text-teal-700 hover:underline truncate block">
                                         {school.name}
                                       </a>
                                       {school.crowFliesDistance !== undefined && (
@@ -930,12 +1230,12 @@ function HomeContent() {
               </div>
             )}
 
-            {/* Gemini Summary Report */}
-            <div className="p-6 bg-white rounded-xl shadow-md">
+            {/* AI Summary Report */}
+            <div className="p-6 bg-white dark:bg-slate-900 rounded-xl shadow-md">
               <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="w-5 h-5 text-slate-500" />
-                <h2 className="text-lg font-semibold text-slate-800">Summary Report</h2>
-                <span className="text-xs text-slate-400 font-normal">{aiModel || 'google/gemini-3-flash-preview'}</span>
+                <Sparkles className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Summary Report</h2>
+                <span className="text-xs text-slate-400 font-normal">Claude Opus</span>
               </div>
 
               {!aiLoading && !aiAnalysis && !aiError && (
@@ -959,52 +1259,17 @@ function HomeContent() {
               )}
 
               {aiAnalysis && !aiLoading && (
-                <div className="prose prose-sm prose-slate max-w-none">
+                <div className="prose prose-sm prose-slate dark:prose-invert max-w-none">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{aiAnalysis}</ReactMarkdown>
                 </div>
               )}
             </div>
 
-            {/* Kimi Summary Report */}
-            <div className="p-6 bg-white rounded-xl shadow-md">
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="w-5 h-5 text-slate-500" />
-                <h2 className="text-lg font-semibold text-slate-800">Summary Report</h2>
-                <span className="text-xs text-slate-400 font-normal">{ai2Model || 'anthropic/claude-opus-4.6'}</span>
-              </div>
-
-              {!ai2Loading && !ai2Analysis && !ai2Error && (
-                <div className="flex items-center justify-center gap-3 py-8 text-slate-400">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span className="text-sm">Waiting for school data before analysing...</span>
-                </div>
-              )}
-
-              {ai2Loading && (
-                <div className="flex items-center justify-center gap-3 py-8 text-slate-400">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span className="text-sm">Generating AI analysis...</span>
-                </div>
-              )}
-
-              {ai2Error && !ai2Loading && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-600">{ai2Error}</p>
-                </div>
-              )}
-
-              {ai2Analysis && !ai2Loading && (
-                <div className="prose prose-sm prose-slate max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{ai2Analysis}</ReactMarkdown>
-                </div>
-              )}
-            </div>
-
             {/* Help Section - Data Sources */}
-            <div className="bg-slate-100 rounded-xl shadow-md overflow-hidden">
+            <div className="bg-slate-100 dark:bg-slate-800 rounded-xl shadow-md overflow-hidden">
               <button
                 onClick={() => setHelpExpanded(!helpExpanded)}
-                className="w-full px-6 py-4 flex items-center gap-2 font-medium text-slate-700 hover:text-slate-900 transition-colors"
+                className="w-full px-6 py-4 flex items-center gap-2 font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:text-slate-100 transition-colors"
               >
                 {helpExpanded ? (
                   <ChevronUp className="w-5 h-5" />
@@ -1016,93 +1281,93 @@ function HomeContent() {
               </button>
 
               {helpExpanded && (
-                <div className="px-6 pb-6 text-slate-700 space-y-4">
+                <div className="px-6 pb-6 text-slate-700 dark:text-slate-300 space-y-4">
                   <p className="text-sm">
                     This tool extracts and enriches property data from multiple sources to give you a comprehensive view. Here&apos;s where each piece of information comes from:
                   </p>
 
                   <div className="space-y-3 text-sm">
-                    <div className="p-3 bg-white rounded-lg">
-                      <p className="font-semibold text-slate-900">Address &amp; Door Number</p>
-                      <p className="text-slate-600 mt-1">
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">Address &amp; Door Number</p>
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
                         The street address is extracted directly from the Rightmove listing. The door/building number is obtained using Google&apos;s reverse geocoding service, which looks up the precise address from the property&apos;s geographic coordinates. This may not always be available if Rightmove doesn&apos;t provide exact coordinates.
                       </p>
                     </div>
 
-                    <div className="p-3 bg-white rounded-lg">
-                      <p className="font-semibold text-slate-900">Price</p>
-                      <p className="text-slate-600 mt-1">
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">Price</p>
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
                         Extracted directly from the Rightmove listing page. For rental properties, this is the monthly price (pcm).
                       </p>
                     </div>
 
-                    <div className="p-3 bg-white rounded-lg">
-                      <p className="font-semibold text-slate-900">Bedrooms, Bathrooms &amp; Property Type</p>
-                      <p className="text-slate-600 mt-1">
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">Bedrooms, Bathrooms &amp; Property Type</p>
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
                         Extracted from Rightmove&apos;s structured property data embedded in the listing page.
                       </p>
                     </div>
 
-                    <div className="p-3 bg-white rounded-lg">
-                      <p className="font-semibold text-slate-900">Size (Square Footage)</p>
-                      <p className="text-slate-600 mt-1">
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">Size (Square Footage)</p>
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
                         Extracted from Rightmove when available. Not all listings include this information.
                       </p>
                     </div>
 
-                    <div className="p-3 bg-white rounded-lg">
-                      <p className="font-semibold text-slate-900">Price Per Square Foot</p>
-                      <p className="text-slate-600 mt-1">
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">Price Per Square Foot</p>
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
                         <span className="italic">Calculated value.</span> This is computed by dividing the property price by the square footage, rounded to the nearest pound. Only shown when both price and size are available.
                       </p>
                     </div>
 
-                    <div className="p-3 bg-white rounded-lg">
-                      <p className="font-semibold text-slate-900">EPC Rating &amp; Certificate</p>
-                      <p className="text-slate-600 mt-1">
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">EPC Rating &amp; Certificate</p>
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
                         The Energy Performance Certificate rating and graph are extracted from Rightmove when the seller has provided this information.
                       </p>
                     </div>
 
-                    <div className="p-3 bg-white rounded-lg">
-                      <p className="font-semibold text-slate-900">Nearest Rail Stations</p>
-                      <p className="text-slate-600 mt-1">
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">Nearest Rail Stations</p>
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
                         The closest National Rail stations are found using the Google Places Nearby Search API, which searches for train stations near the property&apos;s coordinates sorted by distance. Walking times and distances are then calculated using the Google Maps Distance Matrix API with walking mode.
                       </p>
                     </div>
 
-                    <div className="p-3 bg-white rounded-lg">
-                      <p className="font-semibold text-slate-900">Nearest Tube Stations</p>
-                      <p className="text-slate-600 mt-1">
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">Nearest Tube Stations</p>
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
                         London Underground stations are also found using the Google Places Nearby Search API, searching for subway stations near the property&apos;s coordinates. Walking times and distances are calculated using the Google Maps Distance Matrix API. This section only appears for properties near London where tube stations are found within range.
                       </p>
                     </div>
 
-                    <div className="p-3 bg-white rounded-lg">
-                      <p className="font-semibold text-slate-900">Postcode &amp; Coordinates</p>
-                      <p className="text-slate-600 mt-1">
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">Postcode &amp; Coordinates</p>
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
                         The postcode is extracted from Rightmove&apos;s property data. If geographic coordinates aren&apos;t available directly from Rightmove, they are looked up using the free Postcodes.io API based on the postcode.
                       </p>
                     </div>
 
-                    <div className="p-3 bg-white rounded-lg">
-                      <p className="font-semibold text-slate-900">Schools Attended</p>
-                      <p className="text-slate-600 mt-1">
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">Schools Attended</p>
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
                         Sourced from Locrating.com&apos;s neighbourhood analysis (LSOA data). Shows which primary and secondary schools pupils from the property&apos;s immediate neighbourhood actually attend. The area name (e.g. &quot;Barnet 005C&quot;) refers to the Lower Super Output Area (LSOA) — a small census area typically covering around 1,500 residents.
                       </p>
-                      <p className="text-slate-600 mt-1">
-                        <span className="font-medium text-slate-700">Understanding the percentages:</span> The percentage next to each school (e.g. &quot;20%&quot;) means that 20% of school-age children living in this neighbourhood attend that school. A higher percentage suggests the school is a popular choice locally — but it does not indicate how likely your child is to gain a place there. Schools with low percentages (below 1%) are filtered out. The percentages won&apos;t add up to 100% because children attend many different schools across the area.
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
+                        <span className="font-medium text-slate-700 dark:text-slate-300">Understanding the percentages:</span> The percentage next to each school (e.g. &quot;20%&quot;) means that 20% of school-age children living in this neighbourhood attend that school. A higher percentage suggests the school is a popular choice locally — but it does not indicate how likely your child is to gain a place there. Schools with low percentages (below 1%) are filtered out. The percentages won&apos;t add up to 100% because children attend many different schools across the area.
                       </p>
-                      <p className="text-slate-600 mt-1">
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
                         Ofsted ratings reflect the school&apos;s most recent inspection result. &quot;Grammar&quot; indicates a selective school that requires passing an entrance exam.
                       </p>
-                      <p className="text-slate-600 mt-1">
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
                         The underlying data has been sourced from the National School Census and relates to pupils attending school in the academic year 2024/25. Crow-flies (straight-line) distances are calculated from the property to each school using the Haversine formula. Walking times and distances for the top 5 schools per phase (by attendance %) are calculated using the Google Maps Distance Matrix API.
                       </p>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-500 pt-2 border-t border-slate-200">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200">
                     Data accuracy depends on the information provided by Rightmove and the precision of third-party services. Always verify important details independently before making any decisions.
                   </p>
                 </div>
@@ -1204,11 +1469,11 @@ function HomeContent() {
                             'bg-slate-700/50 text-slate-300'
                           }`}
                         >
-                          <span className="text-slate-500 text-xs">
+                          <span className="text-slate-500 dark:text-slate-400 text-xs">
                             {new Date(log.timestamp).toLocaleTimeString()}
                           </span>
                           {log.source && (
-                            <span className="text-slate-500 text-xs ml-2">
+                            <span className="text-slate-500 dark:text-slate-400 text-xs ml-2">
                               [{log.source}]
                             </span>
                           )}
@@ -1221,6 +1486,17 @@ function HomeContent() {
               )}
             </div>
           </div>
+        )}
+          </div>
+        )}
+
+        {/* Undo Toast */}
+        {undoState.show && undoState.deletedProperty && (
+          <UndoToast
+            message="Property deleted"
+            onUndo={handleUndo}
+            onDismiss={handleDismissUndo}
+          />
         )}
       </div>
     </div>

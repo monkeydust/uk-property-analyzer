@@ -524,19 +524,74 @@ function parseFeatures($: cheerio.CheerioAPI): string[] {
 function parseImages($: cheerio.CheerioAPI): string[] {
   const images: string[] = [];
 
-  // Try to get images from various sources
-  $('img[src*="media.rightmove"], [data-testid="gallery-image"] img').each((_, el) => {
+  // Method 1: Look for images in the main gallery (new Rightmove structure)
+  $('div[data-test="property-gallery"] img, div[data-testid="property-gallery"] img').each((_, el) => {
+    const src = $(el).attr('src') || $(el).attr('data-src') || $(el).attr('srcset')?.split(',')[0]?.split(' ')[0];
+    if (src && !images.includes(src)) {
+      images.push(src);
+    }
+  });
+
+  // Method 2: Look for any images from media.rightmove.co.uk
+  $('img[src*="media.rightmove"]').each((_, el) => {
     const src = $(el).attr('src') || $(el).attr('data-src');
     if (src && !images.includes(src)) {
       images.push(src);
     }
   });
 
-  // Try meta image
+  // Method 3: Look for hero/main image
+  $('img[src*="hero"], img[src*="main"], [data-testid="hero-image"] img, [data-test="hero-image"] img').each((_, el) => {
+    const src = $(el).attr('src') || $(el).attr('data-src');
+    if (src && !images.includes(src)) {
+      images.push(src);
+    }
+  });
+
+  // Method 4: Look in script tags for image URLs (JSON-LD or other embedded data)
+  $('script').each((_, el) => {
+    const content = $(el).html() || '';
+    const imageMatches = content.match(/https:\/\/media\.rightmove\.co\.uk\/[^"'\s]+/g);
+    if (imageMatches) {
+      imageMatches.forEach(url => {
+        if (!images.includes(url)) {
+          images.push(url);
+        }
+      });
+    }
+  });
+
+  // Method 5: Try meta image (Open Graph)
   const ogImage = $('meta[property="og:image"]').attr('content');
   if (ogImage && !images.includes(ogImage)) {
     images.unshift(ogImage);
   }
 
-  return images.slice(0, 10); // Limit to 10 images
+  // Method 6: Try Twitter card image
+  const twitterImage = $('meta[name="twitter:image"]').attr('content');
+  if (twitterImage && !images.includes(twitterImage)) {
+    images.unshift(twitterImage);
+  }
+
+  // Clean up URLs - remove size parameters and get full resolution
+  const cleanedImages = images.map(url => {
+    // Remove _max or other size suffixes to get full resolution
+    return url.replace(/_\d+x\d+/, '').replace(/_max/, '');
+  });
+
+  // Filter out non-property images (agent logos, branch profiles, etc.)
+  // Prioritize actual property photos
+  const propertyImages = cleanedImages.filter(url => 
+    url.includes('property-photo') || // Actual property photos
+    url.includes('prop') || // Property images
+    (url.includes('media.rightmove') && !url.includes('partner-branchprofile')) // Media images excluding agent logos
+  );
+
+  // Reorder: put property photos first, then other images
+  const reorderedImages = [
+    ...propertyImages,
+    ...cleanedImages.filter(url => !propertyImages.includes(url))
+  ];
+
+  return reorderedImages.slice(0, 10); // Limit to 10 images
 }

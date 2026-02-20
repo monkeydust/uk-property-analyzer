@@ -45,7 +45,7 @@ export interface Property {
   // Nearest rail stations (via Google Places)
   nearestStations: {
     name: string;
-    operator?: string;       // e.g. "Thameslink", "Great Western"
+    operators?: string[];    // e.g. ["Thameslink", "Great Western"]
     walkingTime?: number;    // minutes
     walkingDistance?: number; // meters
   }[] | null;
@@ -57,6 +57,17 @@ export interface Property {
     walkingTime?: number;    // minutes
     walkingDistance?: number; // meters
   }[] | null;
+
+  // Commute times to benchmark destinations
+  commuteTimes?: {
+    destination: string;
+    durationSeconds: number;
+    durationText: string;
+    benchmarkDiffSeconds: number;
+    benchmarkDiffText: string;
+    isFaster: boolean;
+    arrivalTime: string;
+  }[];
 
   // Meta
   scrapedAt: string;

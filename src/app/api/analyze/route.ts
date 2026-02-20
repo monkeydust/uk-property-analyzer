@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { scrapeRightmoveProperty, isValidRightmoveUrl } from '@/lib/scraper/rightmove';
 import { AnalysisResponse } from '@/lib/types/property';
-import { getWalkingDistances, reverseGeocode, findNearbyTrainStations, findNearbyTubeStations, getCoordinatesFromPostcode } from '@/lib/utils/google-maps';
+import { reverseGeocode, getCoordinatesFromPostcode } from '@/lib/utils/google-maps';
 import { propertyCache, TTL } from '@/lib/cache';
 import logger from '@/lib/logger';
-import { getTrainOperator, getOperatorDisplayName, getTubeLines } from '@/lib/utils/station-lines';
 
 export async function POST(request: NextRequest): Promise<NextResponse<AnalysisResponse>> {
   try {
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
 
     const property = scrapeResult.property;
 
-    // Find nearest stations
+    // Get coordinates
     let coordinates = property.coordinates;
 
     // If no coordinates from Rightmove, try Postcodes.io
@@ -76,78 +75,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
         logger.info(`Door number from reverse geocoding: ${geocodeResult.streetNumber}`, 'analyze');
       }
 
-      // Also update street name if we got a better one
       if (geocodeResult?.streetName && !property.address.streetName) {
         property.address.streetName = geocodeResult.streetName;
       }
     }
 
-    // Find nearest rail stations via Google Places
-    if (coordinates) {
-      const trainStations = await findNearbyTrainStations(
-        coordinates.latitude,
-        coordinates.longitude,
-        3
-      );
-      logger.info(`Nearest train stations: ${trainStations?.length || 0} found`, 'analyze');
-
-      if (trainStations && trainStations.length > 0) {
-        const walkingResults = await getWalkingDistances(
-          coordinates.latitude,
-          coordinates.longitude,
-          trainStations
-        );
-
-        property.nearestStations = trainStations.map((station) => {
-          const walkingData = walkingResults?.find((w) => w.destination === station.name);
-          const operator = getTrainOperator(station.name);
-          return {
-            name: station.name,
-            operator: operator ? getOperatorDisplayName(operator) : undefined,
-            walkingTime: walkingData ? Math.round(walkingData.durationSeconds / 60) : undefined,
-            walkingDistance: walkingData?.distanceMeters,
-          };
-        });
-
-        if (walkingResults) {
-          logger.info('Rail walking times fetched from Google Maps', 'analyze');
-        }
-      } else {
-        property.nearestStations = trainStations; // null (API error) or [] (none found)
-      }
-
-      // Find nearest tube stations via Google Places
-      const tubeStations = await findNearbyTubeStations(
-        coordinates.latitude,
-        coordinates.longitude,
-        3
-      );
-
-      if (tubeStations && tubeStations.length > 0) {
-        const tubeWalkingResults = await getWalkingDistances(
-          coordinates.latitude,
-          coordinates.longitude,
-          tubeStations
-        );
-
-        property.nearestTubeStations = tubeStations.map((station) => {
-          const walkingData = tubeWalkingResults?.find((w) => w.destination === station.name);
-          const lines = getTubeLines(station.name);
-          return {
-            name: station.name,
-            lines: lines.length > 0 ? lines : undefined,
-            walkingTime: walkingData ? Math.round(walkingData.durationSeconds / 60) : undefined,
-            walkingDistance: walkingData?.distanceMeters,
-          };
-        });
-
-        if (tubeWalkingResults) {
-          logger.info('Tube walking times fetched from Google Maps', 'analyze');
-        }
-      } else {
-        property.nearestTubeStations = tubeStations; // null (API error) or [] (none found)
-      }
-    }
+    // Stations and commute times are now fetched by separate endpoints
+    // /api/stations and /api/commute - called in parallel by the frontend
 
     const responseData = {
       success: true,

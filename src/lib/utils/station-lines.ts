@@ -13,6 +13,7 @@ export const tubeStationLines: Record<string, string[]> = {
   'Battersea Park': ['Northern'],
   'Bayswater': ['District', 'Circle'],
   'Beckton': ['DLR'],
+  'Barking': ['District', 'Hammersmith & City'],
   'Belsize Park': ['Northern'],
   'Bethnal Green': ['Central'],
   'Blackfriars': ['District', 'Circle'],
@@ -113,6 +114,7 @@ export const tubeStationLines: Record<string, string[]> = {
   'Holland Park': ['Central'],
   'Holloway Road': ['Piccadilly'],
   'Homerton': ['Overground'],
+  'Hornchurch': ['District'],
   'Hornsey': ['Northern'],
   'Hounslow Central': ['Piccadilly'],
   'Hounslow East': ['Piccadilly'],
@@ -288,54 +290,196 @@ export const tubeStationLines: Record<string, string[]> = {
   'Woodside Park': ['Northern'],
 };
 
-// UK Train station operators (station name -> operator)
+// UK Train station operators (station name -> operators array)
 // This is a subset of major stations - not exhaustive
-export const trainStationOperators: Record<string, string> = {
-  // London terminals
-  'London Bridge': 'Southeastern',
-  'London Cannon Street': 'Southeastern',
-  'London Charing Cross': 'Southeastern',
-  'London Euston': 'Avanti West Coast',
-  'London King\'s Cross': 'Great Northern',
-  'London Liverpool Street': 'Greater Anglia',
-  'London Paddington': 'Great Western Railway',
-  'London St Pancras': 'Eurostar / Southeastern',
-  'London Victoria': 'Southeastern',
-  'London Waterloo': 'South Western Railway',
-  'London Blackfriars': 'Southeastern',
-  'London Fenchurch Street': 'c2c',
-  'London Marylebone': 'Chiltern Railways',
-  'Liverpool Street': 'Greater Anglia',
-  'Manchester Piccadilly': 'Avanti West Coast',
-  'Manchester Victoria': 'Northern',
-  'Birmingham New Street': 'Avanti West Coast',
-  'Birmingham Moor Street': 'Chiltern Railways',
-  'Birmingham Snow Hill': 'West Midlands Railway',
-  'Leeds': 'Avanti West Coast',
-  'Glasgow Central': 'Avanti West Coast',
-  'Edinburgh Waverley': 'ScotRail',
-  'Bristol Temple Meads': 'Great Western Railway',
-  'Bristol Parkway': 'Great Western Railway',
-  'Cardiff Central': 'Transport for Wales',
-  'Liverpool Lime Street': 'Avanti West Coast',
-  'Sheffield': 'Avanti West Coast',
-  'Newcastle': 'Avanti West Coast',
-  'Leicester': 'East Midlands Railway',
-  'Nottingham': 'East Midlands Railway',
-  'Derby': 'East Midlands Railway',
-  'Oxford': 'Great Western Railway',
-  'Cambridge': 'Greater Anglia',
-  'Brighton': 'Southern',
-  'Southampton Central': 'South Western Railway',
-  'Reading': 'Great Western Railway',
-  'Watford Junction': 'Avanti West Coast / London Northwestern',
-  'Milton Keynes Central': 'Avanti West Coast',
-  'Stevenage': 'Great Northern',
-  'Peterborough': 'Great Northern / East Midlands Railway',
-  'Stansted Airport': 'Greater Anglia',
-  'Luton Airport': 'East Midlands Railway',
-  'Gatwick Airport': 'Southern',
-  'Heathrow Terminal': 'Heathrow Express / Great Western Railway',
+export const trainStationOperators: Record<string, string[]> = {
+  // London terminals with multiple operators
+  'London Cannon Street': ['Southeastern'],
+  'London Charing Cross': ['Southeastern'],
+  'London Euston': ['Avanti West Coast'],
+  'London King\'s Cross': ['Great Northern'],
+  'London Liverpool Street': ['Greater Anglia'],
+  'London Paddington': ['Great Western Railway'],
+  'London St Pancras': ['Eurostar', 'Southeastern'],
+  'London Victoria': ['Southeastern'],
+  'London Waterloo': ['South Western Railway'],
+  'London Blackfriars': ['Southeastern', 'Thameslink'],
+  'London Fenchurch Street': ['c2c'],
+  'London Marylebone': ['Chiltern Railways'],
+  'Liverpool Street': ['Greater Anglia'],
+  'Manchester Piccadilly': ['Avanti West Coast'],
+  'Manchester Victoria': ['Northern'],
+  'Birmingham New Street': ['Avanti West Coast'],
+  'Birmingham Moor Street': ['Chiltern Railways'],
+  'Birmingham Snow Hill': ['West Midlands Railway'],
+  'Leeds': ['Avanti West Coast'],
+  'Glasgow Central': ['Avanti West Coast'],
+  'Edinburgh Waverley': ['ScotRail'],
+  'Bristol Temple Meads': ['Great Western Railway'],
+  'Bristol Parkway': ['Great Western Railway'],
+  'Cardiff Central': ['Transport for Wales'],
+  'Liverpool Lime Street': ['Avanti West Coast'],
+  'Sheffield': ['Avanti West Coast'],
+  'Newcastle': ['Avanti West Coast'],
+  'Leicester': ['East Midlands Railway'],
+  'Nottingham': ['East Midlands Railway'],
+  'Derby': ['East Midlands Railway'],
+  'Oxford': ['Great Western Railway'],
+  'Cambridge': ['Greater Anglia', 'Thameslink'],
+  'Brighton': ['Southern', 'Thameslink'],
+  'Southampton Central': ['South Western Railway'],
+  'Watford Junction': ['Avanti West Coast', 'London Northwestern'],
+  'Milton Keynes Central': ['Avanti West Coast'],
+  'Stevenage': ['Great Northern'],
+  'Peterborough': ['Great Northern', 'East Midlands Railway'],
+  'Stansted Airport': ['Greater Anglia'],
+  'Luton Airport': ['East Midlands Railway'],
+  'Gatwick Airport': ['Southern', 'Thameslink'],
+  'Heathrow Terminal': ['Heathrow Express', 'Great Western Railway'],
+  // Essex Greater Anglia/Elizabeth Line stations
+  'Ingatestone': ['Greater Anglia'],
+  'Chelmsford': ['Greater Anglia'],
+  'Colchester': ['Greater Anglia'],
+  'Ipswich': ['Greater Anglia'],
+  'Norwich': ['Greater Anglia'],
+  'Witham': ['Greater Anglia'],
+  'Hatfield Peverel': ['Greater Anglia'],
+  'Kelvedon': ['Greater Anglia'],
+  'Marks Tey': ['Greater Anglia'],
+  'Manningtree': ['Greater Anglia'],
+  'Harwich': ['Greater Anglia'],
+  'Dovercourt': ['Greater Anglia'],
+  'Wrabness': ['Greater Anglia'],
+  'Mistley': ['Greater Anglia'],
+  'Bradfield': ['Greater Anglia'],
+  'Wivenhoe': ['Greater Anglia'],
+  'Alresford': ['Greater Anglia'],
+  'Great Bentley': ['Greater Anglia'],
+  'Weeley': ['Greater Anglia'],
+  'Thorpe-le-Soken': ['Greater Anglia'],
+  'Kirby Cross': ['Greater Anglia'],
+  'Frinton-on-Sea': ['Greater Anglia'],
+  'Walton-on-the-Naze': ['Greater Anglia'],
+  'Clacton-on-Sea': ['Greater Anglia'],
+  'Thorpe Bay': ['c2c'],
+  'Southend Central': ['c2c'],
+  'Southend East': ['c2c'],
+  'Shoeburyness': ['c2c'],
+  'Laindon': ['c2c'],
+  'Basildon': ['c2c'],
+  'Pitsea': ['c2c'],
+  'Benfleet': ['c2c'],
+  'Leigh-on-Sea': ['c2c'],
+  'Chalkwell': ['c2c'],
+  'Westcliff': ['c2c'],
+  'Southend Victoria': ['Greater Anglia'],
+  'Prittlewell': ['Greater Anglia'],
+  'Hockley': ['Greater Anglia'],
+  'Rayleigh': ['Greater Anglia'],
+  'Wickford': ['Greater Anglia'],
+  'Billericay': ['Greater Anglia'],
+  'West Horndon': ['c2c'],
+  'Upminster': ['c2c'],
+  'Romford': ['Elizabeth', 'Greater Anglia'],
+  'Gidea Park': ['Elizabeth', 'Greater Anglia'],
+  'Harold Wood': ['Elizabeth', 'Greater Anglia'],
+  'Shenfield': ['Elizabeth', 'Greater Anglia'],
+  'Brentwood': ['Elizabeth', 'Greater Anglia'],
+  'Chadwell Heath': ['Elizabeth', 'Greater Anglia'],
+  'Goodmayes': ['Elizabeth', 'Greater Anglia'],
+  'Seven Kings': ['Elizabeth', 'Greater Anglia'],
+  'Ilford': ['Elizabeth', 'Greater Anglia'],
+  'Manor Park': ['Elizabeth', 'Greater Anglia'],
+  'Forest Gate': ['Elizabeth', 'Greater Anglia', 'London Overground'],
+  'Maryland': ['Elizabeth'],
+  'Stratford': ['Elizabeth', 'Greater Anglia', 'c2c', 'London Overground'],
+  'Whitechapel': ['Elizabeth', 'London Overground'],
+  'Canary Wharf': ['Elizabeth'],
+  'Custom House': ['Elizabeth', 'DLR'],
+  'Woolwich': ['Elizabeth', 'Southeastern'],
+  'Abbey Wood': ['Elizabeth', 'Southeastern'],
+  'Acton Main Line': ['Elizabeth'],
+  'West Ealing': ['Elizabeth'],
+  'Hanwell': ['Elizabeth'],
+  'Southall': ['Elizabeth'],
+  'Hayes & Harlington': ['Elizabeth', 'Great Western Railway'],
+  'West Drayton': ['Elizabeth', 'Great Western Railway'],
+  'Iver': ['Elizabeth'],
+  'Langley': ['Elizabeth'],
+  'Slough': ['Elizabeth', 'Great Western Railway'],
+  'Burnham': ['Elizabeth'],
+  'Taplow': ['Elizabeth'],
+  'Maidenhead': ['Elizabeth'],
+  'Twyford': ['Elizabeth'],
+  'Reading': ['Elizabeth', 'Great Western Railway'],
+  // Thameslink stations
+  'Bedford': ['Thameslink'],
+  'Luton': ['Thameslink'],
+  'Luton Airport Parkway': ['Thameslink'],
+  'Harpenden': ['Thameslink'],
+  'St Albans City': ['Thameslink'],
+  'Radlett': ['Thameslink'],
+  'Elstree & Borehamwood': ['Thameslink'],
+  'Mill Hill Broadway': ['Thameslink'],
+  'Hendon': ['Thameslink'],
+  'Cricklewood': ['Thameslink'],
+  'West Hampstead Thameslink': ['Thameslink'],
+  'Kentish Town': ['Thameslink'],
+  'London St Pancras International': ['Thameslink'],
+  'Farringdon': ['Thameslink', 'Elizabeth'],
+  'City Thameslink': ['Thameslink'],
+  'Elephant & Castle': ['Thameslink', 'Southeastern'],
+  'East Croydon': ['Thameslink', 'Southern'],
+  'Three Bridges': ['Thameslink'],
+  'Haywards Heath': ['Thameslink'],
+  'Burgess Hill': ['Thameslink'],
+  'Hassocks': ['Thameslink'],
+  'Hitchin': ['Thameslink'],
+  'Letchworth Garden City': ['Thameslink'],
+  'Baldock': ['Thameslink'],
+  'Arlesey': ['Thameslink'],
+  'Biggleswade': ['Thameslink'],
+  'Sandy': ['Thameslink'],
+  'London Bridge': ['Southeastern', 'Thameslink'],
+  // Southeastern stations
+  'Chatham': ['Southeastern'],
+  'Gillingham': ['Southeastern'],
+  'Rainham': ['Southeastern'],
+  'Sittingbourne': ['Southeastern'],
+  'Faversham': ['Southeastern'],
+  'Whitstable': ['Southeastern'],
+  'Canterbury': ['Southeastern'],
+  'Margate': ['Southeastern'],
+  'Ramsgate': ['Southeastern'],
+  'Dover Priory': ['Southeastern'],
+  'Ashford International': ['Southeastern'],
+  'Tonbridge': ['Southeastern'],
+  'Tunbridge Wells': ['Southeastern'],
+  'Sevenoaks': ['Southeastern'],
+  'Orpington': ['Southeastern'],
+  'Bromley South': ['Southeastern'],
+  'Bickley': ['Southeastern'],
+  'Petts Wood': ['Southeastern'],
+  'Chislehurst': ['Southeastern'],
+  'Elmstead Woods': ['Southeastern'],
+  'Grove Park': ['Southeastern'],
+  'Hither Green': ['Southeastern'],
+  'Blackheath': ['Southeastern'],
+  'Charlton': ['Southeastern'],
+  'Woolwich Dockyard': ['Southeastern'],
+  'Woolwich Arsenal': ['Southeastern'],
+  'Plumstead': ['Southeastern'],
+  'Belvedere': ['Southeastern'],
+  'Erith': ['Southeastern'],
+  'Slade Green': ['Southeastern'],
+  'Dartford': ['Southeastern'],
+  'Stone Crossing': ['Southeastern'],
+  'Greenhithe': ['Southeastern'],
+  'Swanscombe': ['Southeastern'],
+  'Northfleet': ['Southeastern'],
+  'Gravesend': ['Southeastern'],
+  'Higham': ['Southeastern'],
+  'Strood': ['Southeastern'],
 };
 
 // Map common operator names to display-friendly versions
@@ -357,6 +501,8 @@ export const operatorDisplayNames: Record<string, string> = {
   'London Northwestern': 'LNWR',
   'Heathrow Express': 'Heathrow',
   'Eurostar': 'Eurostar',
+  'Thameslink': 'Thameslink',
+  'Elizabeth': 'Elizabeth Line',
 };
 
 // Map tube line names to their colors
@@ -397,30 +543,132 @@ export function getTubeLines(stationName: string): string[] {
   return [];
 }
 
-export function getTrainOperator(stationName: string): string | undefined {
+export function getTrainOperators(stationName: string): string[] {
   const upperName = stationName.toUpperCase();
   
   // Try exact match first
-  for (const [key, operator] of Object.entries(trainStationOperators)) {
+  for (const [key, operators] of Object.entries(trainStationOperators)) {
     if (stationName.toUpperCase() === key.toUpperCase()) {
-      return operator;
+      return operators;
     }
   }
   
   // Try partial match
-  for (const [key, operator] of Object.entries(trainStationOperators)) {
+  for (const [key, operators] of Object.entries(trainStationOperators)) {
     if (upperName.includes(key.toUpperCase()) || key.toUpperCase().includes(upperName)) {
-      return operator;
+      return operators;
     }
   }
   
-  return undefined;
+  return [];
+}
+
+// Legacy function for backwards compatibility
+export function getTrainOperator(stationName: string): string | undefined {
+  const operators = getTrainOperators(stationName);
+  return operators.length > 0 ? operators[0] : undefined;
 }
 
 export function getOperatorDisplayName(operator: string): string {
   return operatorDisplayNames[operator] || operator;
 }
 
+export function getOperatorDisplayNames(operators: string[]): string[] {
+  return operators.map(op => getOperatorDisplayName(op));
+}
+
 export function getLineColor(line: string): string {
   return tubeLineColors[line] || '#888888';
+}
+
+// ============================================
+// API INTEGRATION FOR COMPREHENSIVE COVERAGE
+// ============================================
+
+import { getTfLLines } from './tfl-api';
+import { getRailOperatorsFromWikidata, getOperatorFromHeuristics } from './rail-api';
+
+/**
+ * Enhanced async version: Get tube lines with API fallback
+ * Tries lookup table first, then TfL API for stations not in our database
+ */
+export async function getTubeLinesWithApi(stationName: string): Promise<string[]> {
+  // Try lookup table first (fast, no API call)
+  const lookupLines = getTubeLines(stationName);
+  if (lookupLines.length > 0) {
+    return lookupLines;
+  }
+  
+  // Fall back to TfL API for stations not in our database
+  try {
+    const apiLines = await getTfLLines(stationName);
+    return apiLines;
+  } catch (error) {
+    console.error(`Failed to get TfL lines for ${stationName}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Enhanced async version: Get train operators with API fallback
+ * Tries lookup table first, then Wikidata API, then heuristics
+ */
+export async function getTrainOperatorsWithApi(stationName: string): Promise<string[]> {
+  // Try lookup table first (fast, no API call)
+  const lookupOperators = getTrainOperators(stationName);
+  if (lookupOperators.length > 0) {
+    return lookupOperators;
+  }
+  
+  // Try Wikidata API for stations not in our database
+  try {
+    const apiOperators = await getRailOperatorsFromWikidata(stationName);
+    if (apiOperators.length > 0) {
+      return apiOperators;
+    }
+  } catch (error) {
+    console.error(`Failed to get Wikidata operators for ${stationName}:`, error);
+  }
+  
+  // Fall back to heuristics based on station name patterns
+  const heuristicOperators = getOperatorFromHeuristics(stationName);
+  if (heuristicOperators.length > 0) {
+    return heuristicOperators;
+  }
+  
+  return [];
+}
+
+/**
+ * Batch fetch tube lines for multiple stations
+ * Optimized to run API calls in parallel
+ */
+export async function getTubeLinesForStations(stationNames: string[]): Promise<Map<string, string[]>> {
+  const results = new Map<string, string[]>();
+  
+  await Promise.all(
+    stationNames.map(async (name) => {
+      const lines = await getTubeLinesWithApi(name);
+      results.set(name, lines);
+    })
+  );
+  
+  return results;
+}
+
+/**
+ * Batch fetch train operators for multiple stations
+ * Optimized to run API calls in parallel
+ */
+export async function getTrainOperatorsForStations(stationNames: string[]): Promise<Map<string, string[]>> {
+  const results = new Map<string, string[]>();
+  
+  await Promise.all(
+    stationNames.map(async (name) => {
+      const operators = await getTrainOperatorsWithApi(name);
+      results.set(name, operators);
+    })
+  );
+  
+  return results;
 }

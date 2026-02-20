@@ -54,6 +54,33 @@ function formatDistanceMiles(km: number): string {
   return miles < 0.1 ? `${Math.round(miles * 5280)} ft` : `${miles.toFixed(1)} mi`;
 }
 
+// Tube line colors
+const tubeLineColors: Record<string, string> = {
+  'Bakerloo': '#B36305',
+  'Central': '#DC241F',
+  'Circle': '#FFD300',
+  'District': '#007D32',
+  'Hammersmith & City': '#F3A9BB',
+  'Jubilee': '#A0A5A9',
+  'Metropolitan': '#9B0056',
+  'Northern': '#000000',
+  'Piccadilly': '#00095B',
+  'Victoria': '#0088D3',
+  'Waterloo & City': '#94CEBE',
+  'DLR': '#00A4A7',
+  'Overground': '#E86100',
+  'Elizabeth': '#B97AC0',
+};
+
+// Get color for a tube line - returns text color based on background brightness
+function getLineBadgeStyle(line: string): { bg: string; text: string } {
+  const color = tubeLineColors[line] || '#888888';
+  // For dark colors, use white text; for light colors, use dark text
+  const darkLines = ['Northern', 'Piccadilly', 'Jubilee', 'Metropolitan', 'Bakerloo', 'Central', 'District', 'Elizabeth'];
+  const isDark = darkLines.includes(line) || color === '#000000' || color === '#00095B' || color === '#9B0056';
+  return { bg: color, text: isDark ? 'text-white' : 'text-slate-900' };
+}
+
 function HomeContent() {
   const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -528,19 +555,26 @@ function HomeContent() {
                         key={station.name}
                         className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="w-6 h-6 flex items-center justify-center bg-slate-200 text-slate-700 rounded-full text-sm font-medium">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="w-6 h-6 flex items-center justify-center bg-slate-200 text-slate-700 rounded-full text-sm font-medium flex-shrink-0">
                             {index + 1}
                           </span>
-                          <span className="font-medium text-slate-900">{station.name}</span>
+                          <div className="min-w-0">
+                            <span className="font-medium text-slate-900 block truncate">{station.name}</span>
+                            {station.operator && (
+                              <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                                {station.operator}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex-shrink-0 ml-3">
                           {station.walkingTime ? (
                             <>
-                              <span className="text-slate-900 font-medium">
+                              <span className="text-slate-900 font-medium block">
                                 {station.walkingTime} min walk
                               </span>
-                              <span className="text-xs text-slate-400 block">
+                              <span className="text-xs text-slate-400">
                                 {station.walkingDistance
                                   ? station.walkingDistance >= 1000
                                     ? `${(station.walkingDistance / 1000).toFixed(1)} km`
@@ -571,19 +605,40 @@ function HomeContent() {
                         key={station.name}
                         className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="w-6 h-6 flex items-center justify-center bg-blue-100 text-blue-700 rounded-full text-sm font-medium flex-shrink-0">
                             {index + 1}
                           </span>
-                          <span className="font-medium text-slate-900">{station.name}</span>
+                          <div className="min-w-0">
+                            <span className="font-medium text-slate-900 block truncate">{station.name}</span>
+                            {station.lines && station.lines.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {station.lines.slice(0, 4).map((line) => {
+                                  const style = getLineBadgeStyle(line);
+                                  return (
+                                    <span
+                                      key={line}
+                                      className={`px-1.5 py-0.5 text-[10px] rounded font-medium ${style.text}`}
+                                      style={{ backgroundColor: style.bg }}
+                                    >
+                                      {line}
+                                    </span>
+                                  );
+                                })}
+                                {station.lines.length > 4 && (
+                                  <span className="text-xs text-slate-500">+{station.lines.length - 4}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex-shrink-0 ml-3">
                           {station.walkingTime ? (
                             <>
-                              <span className="text-slate-900 font-medium">
+                              <span className="text-slate-900 font-medium block">
                                 {station.walkingTime} min walk
                               </span>
-                              <span className="text-xs text-slate-400 block">
+                              <span className="text-xs text-slate-400">
                                 {station.walkingDistance
                                   ? station.walkingDistance >= 1000
                                     ? `${(station.walkingDistance / 1000).toFixed(1)} km`

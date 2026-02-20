@@ -4,6 +4,7 @@ import { AnalysisResponse } from '@/lib/types/property';
 import { getWalkingDistances, reverseGeocode, findNearbyTrainStations, findNearbyTubeStations, getCoordinatesFromPostcode } from '@/lib/utils/google-maps';
 import { propertyCache, TTL } from '@/lib/cache';
 import logger from '@/lib/logger';
+import { getTrainOperator, getOperatorDisplayName, getTubeLines } from '@/lib/utils/station-lines';
 
 export async function POST(request: NextRequest): Promise<NextResponse<AnalysisResponse>> {
   try {
@@ -99,8 +100,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
 
         property.nearestStations = trainStations.map((station) => {
           const walkingData = walkingResults?.find((w) => w.destination === station.name);
+          const operator = getTrainOperator(station.name);
           return {
             name: station.name,
+            operator: operator ? getOperatorDisplayName(operator) : undefined,
             walkingTime: walkingData ? Math.round(walkingData.durationSeconds / 60) : undefined,
             walkingDistance: walkingData?.distanceMeters,
           };
@@ -129,8 +132,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
 
         property.nearestTubeStations = tubeStations.map((station) => {
           const walkingData = tubeWalkingResults?.find((w) => w.destination === station.name);
+          const lines = getTubeLines(station.name);
           return {
             name: station.name,
+            lines: lines.length > 0 ? lines : undefined,
             walkingTime: walkingData ? Math.round(walkingData.durationSeconds / 60) : undefined,
             walkingDistance: walkingData?.distanceMeters,
           };

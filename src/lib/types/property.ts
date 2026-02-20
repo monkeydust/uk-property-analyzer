@@ -45,6 +45,7 @@ export interface Property {
   // Nearest rail stations (via Google Places)
   nearestStations: {
     name: string;
+    operator?: string;       // e.g. "Thameslink", "Great Western"
     walkingTime?: number;    // minutes
     walkingDistance?: number; // meters
   }[] | null;
@@ -52,6 +53,7 @@ export interface Property {
   // Nearest tube stations (via Google Places)
   nearestTubeStations: {
     name: string;
+    lines?: string[];        // e.g. ["Central", "Victoria"]
     walkingTime?: number;    // minutes
     walkingDistance?: number; // meters
   }[] | null;

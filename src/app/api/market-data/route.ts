@@ -39,7 +39,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<MarketDat
       listingPrice ?? null,
       squareFootage ?? null,
       doorNumber ?? null,
-      streetName ?? null
+      streetName ?? null,
+      !!bustCache
     );
 
     if (result.success) {

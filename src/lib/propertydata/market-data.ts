@@ -186,9 +186,14 @@ export async function getMarketData(
   listingPrice: number | null,
   squareFootage: number | null,
   doorNumber?: string | null,
-  streetName?: string | null
+  streetName?: string | null,
+  bustCache?: boolean
 ): Promise<MarketDataResult> {
   const cacheKey = buildCacheKey(postcode, bedrooms, propertyType);
+
+  if (bustCache) {
+    marketDataCache.delete(cacheKey);
+  }
 
   const cached = marketDataCache.get(cacheKey);
   if (cached) {
@@ -222,16 +227,11 @@ export async function getMarketData(
       ...(bedrooms != null && { bathrooms: String(Math.max(1, Math.ceil((bedrooms || 2) / 2))) }),
     };
 
-    const [
-      valuationResult,
-      pricesResult,
-      growthResult,
-      councilTaxResult,
-      crimeResult,
-      floodRiskResult,
-      conservationResult,
-    ] = await Promise.allSettled([
-      // Valuation — skip entirely if we don't have property_type
+    // Stagger calls in small batches to avoid PropertyData rate limits
+    const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+    // Batch 1: valuation + prices + growth (most important)
+    const [valuationResult, pricesResult, growthResult] = await Promise.allSettled([
       mappedType
         ? propertyDataGet<ValuationSaleResponse>('valuation-sale', valuationParams, { retriesOnThrottle: 2 })
         : Promise.resolve({ status: 'error' as const }),
@@ -243,13 +243,21 @@ export async function getMarketData(
       }, { retriesOnThrottle: 2 }),
 
       propertyDataGet<GrowthResponse>('growth', { postcode }, { retriesOnThrottle: 2 }),
+    ]);
 
+    await delay(1500);
+
+    // Batch 2: council tax + crime
+    const [councilTaxResult, crimeResult] = await Promise.allSettled([
       propertyDataGet<CouncilTaxResponse>('council-tax', { postcode }, { retriesOnThrottle: 2 }),
-
       propertyDataGet<CrimeResponse>('crime', { postcode }, { retriesOnThrottle: 2 }),
+    ]);
 
+    await delay(1500);
+
+    // Batch 3: flood risk + conservation area
+    const [floodRiskResult, conservationResult] = await Promise.allSettled([
       propertyDataGet<FloodRiskResponse>('flood-risk', { postcode }, { retriesOnThrottle: 2 }),
-
       propertyDataGet<ConservationAreaResponse>('conservation-area', { postcode }, { retriesOnThrottle: 2 }),
     ]);
 

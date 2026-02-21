@@ -239,6 +239,7 @@ function HomeContent() {
     setSchoolsError(null);
     setAiAnalysis(null);
     setAiError(null);
+    setMarketData(null);
     setLogs([]);
     bustCacheRef.current = true;
     bustAiCacheRef.current = true;

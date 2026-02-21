@@ -945,7 +945,7 @@ function HomeContent() {
                   <div className="space-y-2">
                     {result.property.nearestStations.map((station, index) => (
                       <div
-                        key={station.name}
+                        key={`${station.name}-${index}`}
                         className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
                       >
                         <div className="flex items-center gap-3 min-w-0">
@@ -995,7 +995,7 @@ function HomeContent() {
                   <div className="space-y-2">
                     {result.property.nearestTubeStations.map((station, index) => (
                       <div
-                        key={station.name}
+                        key={`${station.name}-${index}`}
                         className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
                       >
                         <div className="flex items-center gap-3 min-w-0">

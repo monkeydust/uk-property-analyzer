@@ -19,10 +19,25 @@ export async function GET(request: NextRequest) {
     logger.info(`Fetching stations near ${lat}, ${lng}`, 'stations');
 
     // Fetch train and tube stations in parallel
-    const [trainStations, tubeStations] = await Promise.all([
-      findNearbyTrainStations(lat, lng, 3),
-      findNearbyTubeStations(lat, lng, 3),
+    const [trainStationsRaw, tubeStationsRaw] = await Promise.all([
+      findNearbyTrainStations(lat, lng, 5), // Fetch more to account for duplicates
+      findNearbyTubeStations(lat, lng, 5),
     ]);
+
+    // Deduplicate stations by name (Google Places can return same station twice)
+    const seenTrainNames = new Set<string>();
+    const trainStations = trainStationsRaw?.filter((s) => {
+      if (seenTrainNames.has(s.name)) return false;
+      seenTrainNames.add(s.name);
+      return true;
+    }).slice(0, 3);
+
+    const seenTubeNames = new Set<string>();
+    const tubeStations = tubeStationsRaw?.filter((s) => {
+      if (seenTubeNames.has(s.name)) return false;
+      seenTubeNames.add(s.name);
+      return true;
+    }).slice(0, 3);
 
     logger.info(`Found ${trainStations?.length || 0} train, ${tubeStations?.length || 0} tube stations`, 'stations');
 

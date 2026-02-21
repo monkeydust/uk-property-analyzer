@@ -147,11 +147,16 @@ function HomeContent() {
     loadSavedProperties();
   }, []);
 
+  // Track whether we're loading from a saved property (skip re-fetching)
+  const loadedFromSaveRef = useRef(false);
+
   const handlePropertyClick = (property: SavedProperty) => {
     setSelectedProperty(property);
     activePropertyIdRef.current = property.id;
     // Reset commute times ref when loading a saved property
     commuteTimesRef.current = property.data.commuteTimes || [];
+    // Mark as loaded from save so the useEffect skips re-fetching
+    loadedFromSaveRef.current = true;
     setResult({
       property: {
         ...property.data.property,
@@ -320,6 +325,12 @@ function HomeContent() {
       return;
     }
 
+    // Skip re-fetching if loaded from a saved property
+    if (loadedFromSaveRef.current) {
+      loadedFromSaveRef.current = false;
+      return;
+    }
+
     // Build the best possible full address for the schools lookup:
     // 1. Prepend door number if available and not already in displayAddress
     // 2. Replace trailing outward code (e.g. "EN5") with full postcode (e.g. "EN5 1HH")
@@ -412,31 +423,27 @@ function HomeContent() {
         .then(data => {
           if (data.logs) mergeLogs(data.logs);
           if (data.success) {
-            // 1. Prepare updated data
-            const updatedProperty = {
-              ...initialProperty,
-              nearestStations: data.nearestStations,
-              nearestTubeStations: data.nearestTubeStations,
-            };
-
-            // 2. Save updated data to DB (background process continues)
-            saveProperty(propertyId, propertyUrl, {
-              property: updatedProperty,
-              schools: schoolsData,
-              aiAnalysis: aiAnalysis,
-              aiModel: aiModel,
-              commuteTimes: commuteTimesRef.current,
-            }).then(() => {
-              // Refresh dashboard list
-              getSavedProperties().then(setSavedProperties);
-            });
-
-            // 3. Update UI state ONLY if this is still the active property
+            // Update UI state ONLY if this is still the active property
             if (activePropertyIdRef.current === propertyId) {
-              setResult(prev => (prev?.property?.id === propertyId) ? {
-                ...prev,
-                property: updatedProperty
-              } : prev);
+              setResult(prev => {
+                if (!prev || prev.property?.id !== propertyId) return prev;
+                const merged = {
+                  ...prev.property,
+                  nearestStations: data.nearestStations,
+                  nearestTubeStations: data.nearestTubeStations,
+                };
+                // Save merged data to DB
+                saveProperty(propertyId, propertyUrl, {
+                  property: merged,
+                  schools: schoolsData,
+                  aiAnalysis: aiAnalysis,
+                  aiModel: aiModel,
+                  commuteTimes: commuteTimesRef.current,
+                }).then(() => {
+                  getSavedProperties().then(setSavedProperties);
+                });
+                return { ...prev, property: merged };
+              });
             }
           }
         })
@@ -454,32 +461,29 @@ function HomeContent() {
         .then(data => {
           if (data.logs) mergeLogs(data.logs);
           if (data.success) {
-            // 1. Prepare updated data
-            const updatedProperty = {
-              ...initialProperty,
-              commuteTimes: data.commuteTimes,
-            };
-            
             // Update ref with latest commute times for other parallel saves
             commuteTimesRef.current = data.commuteTimes || [];
 
-            // 2. Save updated data to DB
-            saveProperty(propertyId, propertyUrl, {
-              property: updatedProperty,
-              schools: schoolsData,
-              aiAnalysis: aiAnalysis,
-              aiModel: aiModel,
-              commuteTimes: commuteTimesRef.current,
-            }).then(() => {
-              getSavedProperties().then(setSavedProperties);
-            });
-
-            // 3. Update UI ONLY if active
+            // Update UI ONLY if active
             if (activePropertyIdRef.current === propertyId) {
-              setResult(prev => (prev?.property?.id === propertyId) ? {
-                ...prev,
-                property: updatedProperty
-              } : prev);
+              setResult(prev => {
+                if (!prev || prev.property?.id !== propertyId) return prev;
+                const merged = {
+                  ...prev.property,
+                  commuteTimes: data.commuteTimes,
+                };
+                // Save merged data to DB
+                saveProperty(propertyId, propertyUrl, {
+                  property: merged,
+                  schools: schoolsData,
+                  aiAnalysis: aiAnalysis,
+                  aiModel: aiModel,
+                  commuteTimes: commuteTimesRef.current,
+                }).then(() => {
+                  getSavedProperties().then(setSavedProperties);
+                });
+                return { ...prev, property: merged };
+              });
             }
           }
         })

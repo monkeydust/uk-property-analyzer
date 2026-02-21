@@ -149,6 +149,10 @@ function HomeContent() {
 
   // Track whether we're loading from a saved property (skip re-fetching)
   const loadedFromSaveRef = useRef(false);
+  // Track whether we should bust caches on the next fetch cycle (refresh)
+  const bustCacheRef = useRef(false);
+  // Track whether AI cache should be busted (set during refresh, consumed by AI effect)
+  const bustAiCacheRef = useRef(false);
 
   const handlePropertyClick = (property: SavedProperty) => {
     setSelectedProperty(property);
@@ -229,11 +233,13 @@ function HomeContent() {
     setAiAnalysis(null);
     setAiError(null);
     setLogs([]);
-    await submitUrl(result.property.sourceUrl);
+    bustCacheRef.current = true;
+    bustAiCacheRef.current = true;
+    await submitUrl(result.property.sourceUrl, true);
     setIsRefreshing(false);
   };
 
-  const submitUrl = useCallback(async (urlToSubmit: string) => {
+  const submitUrl = useCallback(async (urlToSubmit: string, bustCache = false) => {
     if (!urlToSubmit.includes('rightmove.co.uk')) {
       setError('Please enter a valid Rightmove URL');
       return;
@@ -252,7 +258,7 @@ function HomeContent() {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlToSubmit }),
+        body: JSON.stringify({ url: urlToSubmit, bustCache }),
       });
 
       const data: AnalysisResponse = await response.json();
@@ -368,9 +374,14 @@ function HomeContent() {
     setSchoolsData(null);
 
     const coords = result.property.coordinates;
+    const shouldBustCache = bustCacheRef.current;
+    bustCacheRef.current = false;
     let schoolsUrl = `/api/schools?address=${encodeURIComponent(fullAddress)}`;
     if (coords) {
       schoolsUrl += `&lat=${coords.latitude}&lng=${coords.longitude}`;
+    }
+    if (shouldBustCache) {
+      schoolsUrl += '&bustCache=1';
     }
 
     fetch(schoolsUrl)
@@ -418,7 +429,7 @@ function HomeContent() {
 
       // Stations
       setStationsLoading(true);
-      fetch(`/api/stations?lat=${coords.latitude}&lng=${coords.longitude}`)
+      fetch(`/api/stations?lat=${coords.latitude}&lng=${coords.longitude}${shouldBustCache ? '&bustCache=1' : ''}`)
         .then(res => res.json())
         .then(data => {
           if (data.logs) mergeLogs(data.logs);
@@ -456,7 +467,7 @@ function HomeContent() {
 
       // Commute times
       setCommuteLoading(true);
-      fetch(`/api/commute?lat=${coords.latitude}&lng=${coords.longitude}`)
+      fetch(`/api/commute?lat=${coords.latitude}&lng=${coords.longitude}${shouldBustCache ? '&bustCache=1' : ''}`)
         .then(res => res.json())
         .then(data => {
           if (data.logs) mergeLogs(data.logs);
@@ -523,10 +534,13 @@ function HomeContent() {
     setAiAnalysis(null);
     setAiModel(null);
 
+    const shouldBustAiCache = bustAiCacheRef.current;
+    bustAiCacheRef.current = false;
+
     fetch('/api/ai-analysis', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ propertyJson: combinedJson, model: 'anthropic/claude-opus-4.6' }),
+      body: JSON.stringify({ propertyJson: combinedJson, model: 'anthropic/claude-opus-4.6', bustCache: shouldBustAiCache }),
     })
       .then(res => res.json())
       .then(data => {

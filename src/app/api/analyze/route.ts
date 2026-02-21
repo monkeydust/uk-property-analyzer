@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { scrapeRightmoveProperty, isValidRightmoveUrl } from '@/lib/scraper/rightmove';
 import { AnalysisResponse } from '@/lib/types/property';
 import { reverseGeocode, getCoordinatesFromPostcode } from '@/lib/utils/google-maps';
-import { propertyCache, TTL } from '@/lib/cache';
+import { propertyCache, schoolsCache, aiCache, TTL } from '@/lib/cache';
 import logger from '@/lib/logger';
 
 export async function POST(request: NextRequest): Promise<NextResponse<AnalysisResponse>> {
   try {
     const body = await request.json();
-    const { url } = body;
+    const { url, bustCache } = body;
 
     // Validate URL
     if (!url || typeof url !== 'string') {
@@ -29,6 +29,15 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
 
     // Normalise URL for cache key (strip tracking params)
     const cacheKey = url.split('?')[0].replace(/\/$/, '');
+
+    // If bustCache is set, clear all caches for this URL
+    if (bustCache) {
+      logger.info(`Cache BUST requested | ${cacheKey}`, 'analyze');
+      propertyCache.delete(cacheKey);
+      aiCache.deleteMatching(cacheKey);
+      schoolsCache.deleteMatching(cacheKey);
+    }
+
     const cached = propertyCache.get(cacheKey);
     if (cached) {
       logger.info(`Cache HIT | ${cacheKey}`, 'analyze');

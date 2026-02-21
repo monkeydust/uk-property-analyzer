@@ -29,6 +29,26 @@ class TTLCache<T> {
   has(key: string): boolean {
     return this.get(key) !== null;
   }
+
+  delete(key: string): void {
+    this.store.delete(key);
+  }
+
+  /** Delete all entries whose key contains the given substring */
+  deleteMatching(substring: string): number {
+    let count = 0;
+    for (const key of this.store.keys()) {
+      if (key.includes(substring)) {
+        this.store.delete(key);
+        count++;
+      }
+    }
+    return count;
+  }
+
+  clear(): void {
+    this.store.clear();
+  }
 }
 
 // One cache instance per data type — TTLs chosen to balance freshness vs cost

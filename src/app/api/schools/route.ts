@@ -89,7 +89,14 @@ export async function GET(request: NextRequest): Promise<NextResponse<AttendedSc
 
     const lat = parseFloat(searchParams.get('lat') || '');
     const lng = parseFloat(searchParams.get('lng') || '');
+    const bustCache = searchParams.get('bustCache') === '1';
     const cacheKey = address.trim().toLowerCase();
+
+    if (bustCache) {
+      logger.info(`Cache BUST requested | "${address}"`, 'schools');
+      schoolsCache.delete(cacheKey);
+    }
+
     const cached = schoolsCache.get(cacheKey);
     if (cached) {
       logger.info(`Cache HIT | "${address}"`, 'schools');

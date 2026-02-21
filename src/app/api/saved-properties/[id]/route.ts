@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { propertyCache, schoolsCache, aiCache } from '@/lib/cache';
 
 // DELETE /api/saved-properties/[id] - Delete a saved property
 export async function DELETE(
@@ -32,6 +33,22 @@ export async function DELETE(
     await prisma.savedProperty.delete({
       where: { id },
     });
+
+    // Clear all related caches
+    const url = property.url;
+    if (url) {
+      const cacheKey = url.split('?')[0].replace(/\/$/, '');
+      propertyCache.delete(cacheKey);
+      aiCache.deleteMatching(cacheKey);
+    }
+    // Clear schools cache entries related to this property's address/postcode
+    const propertyData = JSON.parse(property.propertyData);
+    if (propertyData?.address?.postcode) {
+      schoolsCache.deleteMatching(propertyData.address.postcode);
+    }
+    if (propertyData?.address?.displayAddress) {
+      schoolsCache.deleteMatching(propertyData.address.displayAddress);
+    }
 
     // Return the deleted property (for undo functionality)
     return NextResponse.json({

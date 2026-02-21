@@ -47,7 +47,8 @@ const ALLOWED_MODELS = [
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { propertyJson, model } = body;
+    const { propertyJson, model, bustCache } = body;
+
 
     if (!propertyJson || typeof propertyJson !== 'object') {
       return NextResponse.json(
@@ -69,6 +70,12 @@ export async function POST(request: NextRequest) {
     // Cache key: stable property identifier + model
     const propertyId = propertyJson?.id || propertyJson?.address?.postcode || JSON.stringify(propertyJson).slice(0, 100);
     const cacheKey = `${selectedModel}::${propertyId}`;
+
+    if (bustCache) {
+      logger.info(`Cache BUST requested | key=${cacheKey}`, 'ai-analysis');
+      aiCache.delete(cacheKey);
+    }
+
     const cached = aiCache.get(cacheKey);
     if (cached) {
       logger.info(`Cache HIT | model=${selectedModel} | key=${cacheKey}`, 'ai-analysis');

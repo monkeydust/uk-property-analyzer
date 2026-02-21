@@ -1032,74 +1032,75 @@ function HomeContent() {
               )}
             </div>
 
-            {/* Commute Times Section - show if property has coordinates (can calculate) */}
-            {(commuteLoading || (result.property.coordinates && (!result.property.commuteTimes || result.property.commuteTimes.length === 0))) && (
-              <div className="p-6 bg-white dark:bg-slate-900 rounded-xl shadow-md">
-                <div className="flex items-center gap-2 mb-4">
-                  <MapPin className="w-5 h-5 text-slate-500 dark:text-slate-400" />
-                  <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Commute Times</h2>
-                </div>
-                <div className="flex items-center gap-3 py-4 text-slate-400">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span className="text-sm">Calculating commute times...</span>
-                </div>
-              </div>
-            )}
-            {!commuteLoading && result.property.commuteTimes && result.property.commuteTimes.length > 0 && (
+            {/* Commute Times Section */}
+            {(commuteLoading || result.property.commuteTimes) && (
               <div className="p-6 bg-white dark:bg-slate-900 rounded-xl shadow-md">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                     <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Commute Times</h2>
                   </div>
-                  <span className="text-xs text-slate-400">Wed 6:40 AM departure</span>
+                  {!commuteLoading && result.property.commuteTimes && result.property.commuteTimes.length > 0 && (
+                    <span className="text-xs text-slate-400">Wed 6:40 AM departure</span>
+                  )}
                 </div>
-                
-                <div className="space-y-3">
-                  {result.property.commuteTimes.map((commute) => (
-                    <div key={commute.destination} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          commute.destination === 'Bloomberg' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'
-                        }`}>
-                          {commute.destination === 'Bloomberg' ? (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path d="M12 14l9-5-9-5-9 5 9 5z" />
-                              <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-                            </svg>
-                          )}
-                        </div>
-                        <div>
-                          <span className="font-semibold text-slate-900 dark:text-slate-100">{commute.destination}</span>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className={`text-sm font-medium ${
-                              commute.isFaster ? 'text-green-600' : commute.benchmarkDiffSeconds === 0 ? 'text-slate-500 dark:text-slate-400' : 'text-red-500'
-                            }`}>
-                              {commute.isFaster ? '✓' : commute.benchmarkDiffSeconds === 0 ? '=' : '↑'} {commute.durationText}
-                            </span>
-                            <span className="text-xs text-slate-400">arrive {commute.arrivalTime}</span>
+
+                {/* Loading state */}
+                {commuteLoading && (
+                  <div className="flex items-center justify-center gap-3 py-8 text-slate-400">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span className="text-sm">Calculating commute times...</span>
+                  </div>
+                )}
+
+                {/* Commute data */}
+                {!commuteLoading && result.property.commuteTimes && result.property.commuteTimes.length > 0 && (
+                  <div className="space-y-3">
+                    {result.property.commuteTimes.map((commute) => (
+                      <div key={commute.destination} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            commute.destination === 'Bloomberg' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'
+                          }`}>
+                            {commute.destination === 'Bloomberg' ? (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                                <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                              </svg>
+                            )}
+                          </div>
+                          <div>
+                            <span className="font-semibold text-slate-900 dark:text-slate-100">{commute.destination}</span>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className={`text-sm font-medium ${
+                                commute.isFaster ? 'text-green-600' : commute.benchmarkDiffSeconds === 0 ? 'text-slate-500 dark:text-slate-400' : 'text-red-500'
+                              }`}>
+                                {commute.isFaster ? '✓' : commute.benchmarkDiffSeconds === 0 ? '=' : '↑'} {commute.durationText}
+                              </span>
+                              <span className="text-xs text-slate-400">arrive {commute.arrivalTime}</span>
+                            </div>
                           </div>
                         </div>
+                        <div className="text-right">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                            commute.isFaster 
+                              ? 'bg-green-100 text-green-700' 
+                              : commute.benchmarkDiffSeconds === 0 
+                                ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                : 'bg-red-100 text-red-700'
+                          }`}>
+                            {commute.benchmarkDiffText}
+                          </span>
+                          <div className="text-xs text-slate-400 mt-1">vs 20 Woodcroft</div>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                          commute.isFaster 
-                            ? 'bg-green-100 text-green-700' 
-                            : commute.benchmarkDiffSeconds === 0 
-                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                              : 'bg-red-100 text-red-700'
-                        }`}>
-                          {commute.benchmarkDiffText}
-                        </span>
-                        <div className="text-xs text-slate-400 mt-1">vs 20 Woodcroft</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

@@ -81,7 +81,7 @@ export async function propertyDataGet<T>(
       if (payload?.status === 'error') {
         // Throttle retry
         if (String(payload?.code) === 'X14' && attempt < retriesOnThrottle) {
-          await sleep(3_500);
+          await sleep(4_000);
           continue;
         }
         throw new PropertyDataError(payload?.message || 'PropertyData error', {

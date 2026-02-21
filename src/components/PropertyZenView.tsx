@@ -134,6 +134,19 @@ function ZenReceipt({ property }: { property: Property }) {
           label="Square Footage"
           value={property.squareFootage ? `${property.squareFootage.toLocaleString()} sq ft` : 'N/A'}
         />
+        {typeof property.plotSizeAcres === 'number' && (
+          <ReceiptRow
+            label="Total area"
+            value={
+              <span>
+                {property.plotSizeAcres.toFixed(2)} acres
+                {property.plotSizeMethod && property.plotSizeMethod !== 'address-match-uprn' && (
+                  <span className="text-amber-500 ml-0.5" title="Approximate — based on a nearby property on the same street">*</span>
+                )}
+              </span>
+            }
+          />
+        )}
       </div>
 
       {/* ENERGY */}
@@ -268,6 +281,12 @@ function ZenStacked({ property }: { property: Property }) {
         <StackedCell label="Property Type" value={property.propertyType || 'N/A'} />
         {property.squareFootage && (
           <StackedCell label="Square Footage" value={`${property.squareFootage.toLocaleString()} sq ft`} />
+        )}
+        {typeof property.plotSizeAcres === 'number' && (
+          <StackedCell
+            label="Total area"
+            value={`${property.plotSizeAcres.toFixed(2)} acres${property.plotSizeMethod && property.plotSizeMethod !== 'address-match-uprn' ? ' *' : ''}`}
+          />
         )}
 
         {/* EPC Current */}
@@ -541,6 +560,12 @@ function ZenDense({ property }: { property: Property }) {
           />
           <DenseRow label="Beds" value={property.bedrooms !== null ? String(property.bedrooms) : 'N/A'} />
           <DenseRow label="Baths" value={property.bathrooms !== null ? String(property.bathrooms) : 'N/A'} />
+          <DenseRow
+            label="Total area"
+            value={typeof property.plotSizeAcres === 'number'
+              ? `${property.plotSizeAcres.toFixed(2)} acres${property.plotSizeMethod && property.plotSizeMethod !== 'address-match-uprn' ? ' *' : ''}`
+              : 'N/A'}
+          />
           <DenseRow
             label="EPC"
             value={

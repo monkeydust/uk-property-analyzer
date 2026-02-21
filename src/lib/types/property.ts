@@ -71,6 +71,12 @@ export interface Property {
 
   // Meta
   scrapedAt: string;
+
+  // PropertyData enrichment
+  plotSizeAcres?: number | null;
+  plotSizeUprn?: string | null;
+  plotSizeTitleNumber?: string | null;
+  plotSizeMethod?: 'address-match-uprn' | 'uprns-location' | 'uprns-postcode' | null;
 }
 
 export interface ScrapeResult {

@@ -4,6 +4,52 @@ import { AnalysisResponse } from '@/lib/types/property';
 import { reverseGeocode, getCoordinatesFromPostcode } from '@/lib/utils/google-maps';
 import { propertyCache, schoolsCache, aiCache, TTL } from '@/lib/cache';
 import logger from '@/lib/logger';
+import { getPlotSizeAcres } from '@/lib/propertydata/plot-size';
+
+function buildFullAddressForPropertyData(input: {
+  doorNumber: string | null;
+  streetName: string | null;
+  displayAddress: string;
+  postcode: string | null;
+}): string | null {
+  if (!input.postcode) return null;
+  const normalizedPostcode = input.postcode.toUpperCase().trim();
+  const outward = normalizedPostcode.replace(/\s+/g, '').length >= 5
+    ? normalizedPostcode.replace(/\s+/g, '').slice(0, -3)
+    : normalizedPostcode;
+
+  const parts: string[] = [];
+
+  if (input.doorNumber) parts.push(input.doorNumber);
+  if (input.streetName) parts.push(input.streetName);
+
+  // Append the locality (town/county) from displayAddress, minus the street if it repeats.
+  const displayParts = input.displayAddress
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const streetLower = (input.streetName || '').toLowerCase();
+  const locality = displayParts
+    .filter((p) => p.toLowerCase() !== streetLower)
+    .filter((p) => {
+      const u = p.toUpperCase();
+      return u !== outward && u !== normalizedPostcode;
+    })
+    .join(', ');
+  if (locality) parts.push(locality);
+
+  parts.push(normalizedPostcode);
+
+  // De-dupe consecutive duplicates
+  const deduped: string[] = [];
+  for (const p of parts) {
+    if (deduped.length === 0 || deduped[deduped.length - 1].toLowerCase() !== p.toLowerCase()) {
+      deduped.push(p);
+    }
+  }
+
+  return deduped.join(', ');
+}
 
 export async function POST(request: NextRequest): Promise<NextResponse<AnalysisResponse>> {
   try {
@@ -91,6 +137,39 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
 
     // Stations and commute times are now fetched by separate endpoints
     // /api/stations and /api/commute - called in parallel by the frontend
+
+    // PropertyData enrichment: plot size (acres)
+    try {
+      const fullAddress = buildFullAddressForPropertyData({
+        doorNumber: property.address.doorNumber,
+        streetName: property.address.streetName,
+        displayAddress: property.address.displayAddress,
+        postcode: property.address.postcode,
+      });
+
+      if (fullAddress) {
+        const plot = await getPlotSizeAcres({
+          address: fullAddress,
+          postcode: property.address.postcode,
+          streetName: property.address.streetName,
+          doorNumber: property.address.doorNumber,
+          coordinates: property.coordinates,
+        });
+
+        property.plotSizeAcres = plot.plotSizeAcres;
+        property.plotSizeUprn = plot.uprn;
+        property.plotSizeTitleNumber = plot.titleNumber;
+        property.plotSizeMethod = plot.method;
+
+        if (plot.plotSizeAcres !== null) {
+          logger.info(`Plot size found: ${plot.plotSizeAcres} acres (method=${plot.method})`, 'analyze');
+        } else {
+          logger.info('Plot size not found (PropertyData)', 'analyze');
+        }
+      }
+    } catch (error) {
+      logger.warn(`PropertyData plot size lookup failed: ${String(error)}`, 'analyze');
+    }
 
     const responseData = {
       success: true,

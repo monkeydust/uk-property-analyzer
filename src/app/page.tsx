@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Property, AnalysisResponse, AttendedSchoolsResult } from '@/lib/types/property';
-import { Bed, Bath, Ruler, Home, MapPin, Copy, Check, ChevronDown, ChevronUp, Loader2, Zap, Train, CircleDot, HelpCircle, Clipboard, X, GraduationCap, Sparkles, FileText, Trash2, Plus, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Bed, Bath, Ruler, Home, MapPin, Copy, Check, ChevronDown, ChevronUp, Loader2, Zap, Train, CircleDot, HelpCircle, Clipboard, X, GraduationCap, Sparkles, FileText, Trash2, Plus, ArrowLeft, RefreshCw, LandPlot } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -798,87 +798,90 @@ function HomeContent() {
                 </div>
               )}
 
-              {/* Stats Grid - 4 columns on desktop, 2 on mobile */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {/* Row 1 */}
-                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
-                    <span className="text-lg">£</span>
-                    <span className="text-sm">Price</span>
+              {/* Key Stats */}
+              <div className="space-y-4">
+                {/* Primary row: high-variance fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
+                      <span className="text-lg">£</span>
+                      <span className="text-sm">Price</span>
+                      {result.property.priceQualifier && (
+                        <span className="ml-auto inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-200/70 text-slate-700 dark:bg-slate-700/60 dark:text-slate-200">
+                          {result.property.priceQualifier.replace(/_/g, ' ')}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 leading-tight break-words">
+                      {result.property.price
+                        ? `£${result.property.price.toLocaleString()}`
+                        : 'N/A'}
+                      {result.property.listingType === 'rent' && (
+                        <span className="text-sm font-normal text-slate-500 dark:text-slate-400"> pcm</span>
+                      )}
+                    </p>
                   </div>
-                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                    {result.property.price
-                      ? `${result.property.price.toLocaleString()}`
-                      : 'N/A'}
-                    {result.property.listingType === 'rent' && (
-                      <span className="text-sm font-normal text-slate-500 dark:text-slate-400"> pcm</span>
-                    )}
-                  </p>
+
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
+                      <Home className="w-4 h-4" />
+                      <span className="text-sm">Type</span>
+                    </div>
+                    <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 leading-tight break-words capitalize">
+                      {result.property.propertyType || 'N/A'}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
-                    <Bed className="w-4 h-4" />
-                    <span className="text-sm">Bedrooms</span>
+                {/* Secondary grid: compact metrics — 2 rows of 3 */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Beds</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                      {result.property.bedrooms ?? 'N/A'}
+                    </p>
                   </div>
-                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                    {result.property.bedrooms ?? 'N/A'}
-                  </p>
-                </div>
 
-                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
-                    <Bath className="w-4 h-4" />
-                    <span className="text-sm">Bathrooms</span>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Baths</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                      {result.property.bathrooms ?? 'N/A'}
+                    </p>
                   </div>
-                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                    {result.property.bathrooms ?? 'N/A'}
-                  </p>
-                </div>
 
-                {/* Row 2 */}
-                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
-                    <Home className="w-4 h-4" />
-                    <span className="text-sm">Type</span>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Size</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                      {result.property.squareFootage
+                        ? <>{result.property.squareFootage.toLocaleString()} <span className="text-sm font-medium">sqft</span></>
+                        : 'N/A'}
+                    </p>
                   </div>
-                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100 capitalize">
-                    {result.property.propertyType}
-                  </p>
-                </div>
 
-                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
-                    <Ruler className="w-4 h-4" />
-                    <span className="text-sm">Size</span>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">£/sqft</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                      {result.property.pricePerSqFt
+                        ? `£${result.property.pricePerSqFt.toLocaleString()}`
+                        : 'N/A'}
+                    </p>
                   </div>
-                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                    {result.property.squareFootage
-                      ? `${result.property.squareFootage.toLocaleString()} sqft`
-                      : 'N/A'}
-                  </p>
-                </div>
 
-                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
-                    <span className="text-lg">£</span>
-                    <span className="text-sm">£ per sqft</span>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">EPC</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                      {result.property.epc?.currentRating || 'N/A'}
+                    </p>
                   </div>
-                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                    {result.property.pricePerSqFt
-                      ? `£${result.property.pricePerSqFt.toLocaleString()}`
-                      : 'N/A'}
-                  </p>
-                </div>
 
-                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
-                    <Zap className="w-4 h-4" />
-                    <span className="text-sm">EPC</span>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Plot</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                      {typeof result.property.plotSizeAcres === 'number'
+                        ? <>{result.property.plotSizeAcres.toFixed(2)} <span className="text-sm font-medium">acres</span>{result.property.plotSizeMethod && result.property.plotSizeMethod !== 'address-match-uprn' && <span className="text-amber-500 ml-0.5" title="Approximate — based on a nearby property on the same street">*</span>}</>
+                        : 'N/A'}
+                    </p>
                   </div>
-                  <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                    {result.property.epc?.currentRating || 'N/A'}
-                  </p>
                 </div>
               </div>
 
@@ -1491,6 +1494,19 @@ function HomeContent() {
                       <p className="font-semibold text-slate-900 dark:text-slate-100">EPC Rating &amp; Certificate</p>
                       <p className="text-slate-600 dark:text-slate-400 mt-1">
                         The Energy Performance Certificate rating and graph are extracted from Rightmove when the seller has provided this information.
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-lg">
+                      <p className="font-semibold text-slate-900 dark:text-slate-100">Plot Size (Total Area)</p>
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
+                        The plot size in acres is obtained from the HM Land Registry via the PropertyData API. The process works by matching the property address to a UPRN (Unique Property Reference Number), then looking up the associated Land Registry title number to retrieve the registered plot boundary and size.
+                      </p>
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
+                        <span className="font-medium text-slate-700 dark:text-slate-300">What does <span className="text-amber-500">*</span> mean?</span> When the exact property address cannot be matched in the UPRN database (common with new-build developments where addresses are not yet fully registered), the system falls back to using a nearby property on the same street. The plot size shown with an asterisk (<span className="text-amber-500">*</span>) is therefore an approximation based on a neighbouring plot, not the exact property. This is typically a reasonable estimate on estates where plots are similar in size.
+                      </p>
+                      <p className="text-slate-600 dark:text-slate-400 mt-1">
+                        Plot size may show as N/A when the property has no registered Land Registry title or when address matching fails entirely.
                       </p>
                     </div>
 

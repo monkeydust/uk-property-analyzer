@@ -59,10 +59,13 @@ export const schoolsCache  = new TTLCache<any>();   // 7 days — school data is
 export const aiCache       = new TTLCache<string>();   // 24h — AI reports are expensive; same property = same report
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const plotSizeCache = new TTLCache<any>();   // 30 days — title plot sizes are stable
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const marketDataCache = new TTLCache<any>(); // 24h — market data changes slowly
 
 export const TTL = {
   PROPERTY: 60 * 60 * 24,       // 24 hours
   SCHOOLS:  60 * 60 * 24 * 7,   // 7 days
   AI:       60 * 60 * 24,       // 24 hours
   PLOT_SIZE: 60 * 60 * 24 * 30, // 30 days
+  MARKET_DATA: 60 * 60 * 24,    // 24 hours
 };

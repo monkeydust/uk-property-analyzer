@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Property, AnalysisResponse, AttendedSchoolsResult } from '@/lib/types/property';
+import { Property, AnalysisResponse, AttendedSchoolsResult, MarketDataResult } from '@/lib/types/property';
 import { Bed, Bath, Ruler, Home, MapPin, Copy, Check, ChevronDown, ChevronUp, Loader2, Zap, Train, CircleDot, HelpCircle, Clipboard, X, GraduationCap, Sparkles, FileText, Trash2, Plus, ArrowLeft, RefreshCw, LandPlot } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { PropertyCard } from '@/components/PropertyCard';
 import { UndoToast } from '@/components/UndoToast';
+import { MarketInsightsCard } from '@/components/MarketInsightsCard';
+import { MarketInsightsSkeleton } from '@/components/MarketInsightsSkeleton';
 import { getSavedProperties, saveProperty, deleteProperty, restoreProperty } from '@/lib/storage';
 import type { SavedProperty } from '@/lib/storage';
 
@@ -111,6 +113,10 @@ function HomeContent() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiModel, setAiModel] = useState<string | null>(null);
 
+  // Market data state
+  const [marketDataLoading, setMarketDataLoading] = useState(false);
+  const [marketData, setMarketData] = useState<MarketDataResult | null>(null);
+
   // Ref to track the currently active property ID to avoid UI state collisions
   // from background tasks processing previous searches
   const activePropertyIdRef = useRef<string | null>(null);
@@ -171,6 +177,7 @@ function HomeContent() {
     setSchoolsData(property.data.schools);
     setAiAnalysis(property.data.aiAnalysis);
     setAiModel(property.data.aiModel);
+    setMarketData(property.data.property.marketData || null);
 
     setView('analysis');
   };
@@ -373,6 +380,10 @@ function HomeContent() {
     setSchoolsError(null);
     setSchoolsData(null);
 
+    // Market data loading
+    setMarketDataLoading(true);
+    setMarketData(null);
+
     const coords = result.property.coordinates;
     const shouldBustCache = bustCacheRef.current;
     bustCacheRef.current = false;
@@ -420,6 +431,47 @@ function HomeContent() {
           setSchoolsLoading(false);
         }
       });
+
+    // Fetch market data in parallel
+    if (result.property.address.postcode) {
+      fetch('/api/market-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          postcode: result.property.address.postcode,
+          bedrooms: result.property.bedrooms,
+          propertyType: result.property.propertyType,
+          listingPrice: result.property.price,
+          squareFootage: result.property.squareFootage,
+          bustCache: shouldBustCache,
+        }),
+      })
+        .then(res => res.json())
+        .then((data: MarketDataResult & { logs?: { id: string; timestamp: string; level: string; message: string; source?: string }[] }) => {
+          if (data.logs) mergeLogs(data.logs);
+          if (activePropertyIdRef.current === propertyId) {
+            setMarketData(data);
+            // Update property with market data for saving
+            setResult(prev => {
+              if (!prev || prev.property?.id !== propertyId) return prev;
+              return {
+                ...prev,
+                property: { ...prev.property, marketData: data },
+              };
+            });
+          }
+        })
+        .catch(() => {
+          if (activePropertyIdRef.current === propertyId) {
+            setMarketData({ success: false, error: 'Failed to fetch market data' });
+          }
+        })
+        .finally(() => {
+          if (activePropertyIdRef.current === propertyId) {
+            setMarketDataLoading(false);
+          }
+        });
+    }
 
     // Fetch stations and commute in parallel (if we have coordinates)
     if (coords) {
@@ -912,6 +964,21 @@ function HomeContent() {
                 </div>
               )}
               </div>
+
+              {/* Market Insights Card */}
+              {marketDataLoading && (
+                <div className="pt-4 mt-4">
+                  <MarketInsightsSkeleton />
+                </div>
+              )}
+              {!marketDataLoading && (
+                <div className="pt-4 mt-4">
+                  <MarketInsightsCard 
+                    marketData={marketData || result.property.marketData} 
+                    listingPrice={result.property.price}
+                  />
+                </div>
+              )}
 
               {/* EPC Graph Image */}
               {result.property.epc?.graphUrl && (

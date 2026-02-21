@@ -77,6 +77,41 @@ export interface Property {
   plotSizeUprn?: string | null;
   plotSizeTitleNumber?: string | null;
   plotSizeMethod?: 'address-match-uprn' | 'uprns-location' | 'uprns-postcode' | null;
+
+  // PropertyData market insights for home buyers
+  marketData?: MarketDataResult | null;
+}
+
+export interface MarketDataResult {
+  success: boolean;
+  data?: {
+    valuation: {
+      estimate: number | null;
+      margin: string | null; // e.g., "Overpriced by 5%" or "Underpriced by 3%"
+      confidence?: string | null;
+    };
+    growth: {
+      fiveYear: number | null; // Percentage
+      trend: 'up' | 'down' | 'stable' | null;
+    };
+    ownership: {
+      councilTaxBand: string | null;
+      tenure: string | null;
+      isConservationArea: boolean;
+    };
+    risks: {
+      crimeRating: string | null;
+      floodRisk: string | null;
+      floodRiskLevel?: 'low' | 'medium' | 'high' | null;
+    };
+    comparables?: {
+      averagePrice: number | null;
+      count: number;
+      timeRange: string;
+    };
+  };
+  error?: string;
+  cached?: boolean;
 }
 
 export interface ScrapeResult {

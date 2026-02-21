@@ -5,6 +5,7 @@ import { reverseGeocode, getCoordinatesFromPostcode } from '@/lib/utils/google-m
 import { propertyCache, schoolsCache, aiCache, TTL } from '@/lib/cache';
 import logger from '@/lib/logger';
 import { getPlotSizeAcres } from '@/lib/propertydata/plot-size';
+import { getMarketData } from '@/lib/propertydata/market-data';
 
 function buildFullAddressForPropertyData(input: {
   doorNumber: string | null;
@@ -169,6 +170,34 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       }
     } catch (error) {
       logger.warn(`PropertyData plot size lookup failed: ${String(error)}`, 'analyze');
+    }
+
+    // PropertyData enrichment: market insights for home buyers
+    try {
+      if (property.address.postcode) {
+        const marketData = await getMarketData(
+          property.address.postcode,
+          property.bedrooms,
+          property.propertyType,
+          property.price,
+          property.squareFootage
+        );
+
+        property.marketData = marketData;
+
+        if (marketData.success) {
+          logger.info(
+            `Market data retrieved: estimate=£${marketData.data?.valuation.estimate?.toLocaleString() ?? 'N/A'}, ` +
+            `growth=${marketData.data?.growth.fiveYear ?? 'N/A'}%, ` +
+            `councilTax=${marketData.data?.ownership.councilTaxBand ?? 'N/A'}`,
+            'analyze'
+          );
+        } else {
+          logger.info('Market data partially unavailable (PropertyData)', 'analyze');
+        }
+      }
+    } catch (error) {
+      logger.warn(`PropertyData market data lookup failed: ${String(error)}`, 'analyze');
     }
 
     const responseData = {

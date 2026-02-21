@@ -226,7 +226,7 @@ export function MarketInsightsCard({ marketData, listingPrice }: MarketInsightsC
           </div>
 
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400">
-            <p>Data provided by PropertyData</p>
+            <p>Sources: HM Land Registry, Police.uk, Environment Agency</p>
           </div>
         </div>
       </div>

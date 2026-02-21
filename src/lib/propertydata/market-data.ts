@@ -2,12 +2,14 @@ import { propertyDataGet, PropertyDataError } from '@/lib/propertydata/client';
 import { marketDataCache, TTL } from '@/lib/cache';
 import type { MarketDataResult } from '@/lib/types/property';
 
+// ── Actual PropertyData API response shapes ──────────────────────────
+
 interface ValuationSaleResponse {
   status: 'success' | 'error';
-  data?: {
+  result?: {
     estimate?: number;
-    margin?: string;
-    confidence?: string;
+    estimate_lower?: number;
+    estimate_upper?: number;
   };
   code?: string;
   message?: string;
@@ -24,53 +26,56 @@ interface PricesResponse {
   message?: string;
 }
 
+// Growth returns data as an array of [date_label, value, pct_string]
 interface GrowthResponse {
   status: 'success' | 'error';
-  data?: {
-    per_year?: number;
-    growth_5_year?: number;
-  };
+  data?: [string, number, string | null][];
   code?: string;
   message?: string;
 }
 
+// Council tax: properties list + council_tax bands at top level
 interface CouncilTaxResponse {
   status: 'success' | 'error';
-  data?: {
-    band?: string;
-  };
+  council?: string;
+  council_rating?: string;
+  council_tax?: Record<string, string>;
+  properties?: { address: string; band: string }[];
   code?: string;
   message?: string;
 }
 
+// Crime: fields at top level
 interface CrimeResponse {
   status: 'success' | 'error';
-  data?: {
-    rating?: string;
-  };
+  crime_rating?: string;
+  crimes_per_thousand?: number;
+  crimes_last_12m?: number;
+  population?: number;
+  observations?: string[];
+  types?: Record<string, number>;
   code?: string;
   message?: string;
 }
 
+// Flood risk: field at top level
 interface FloodRiskResponse {
   status: 'success' | 'error';
-  data?: {
-    risk?: string;
-    level?: 'low' | 'medium' | 'high';
-  };
+  flood_risk?: string;
   code?: string;
   message?: string;
 }
 
+// Conservation area: field at top level
 interface ConservationAreaResponse {
   status: 'success' | 'error';
-  data?: {
-    in_conservation_area?: boolean;
-    name?: string;
-  };
+  conservation_area?: boolean;
+  conservation_area_name?: string | null;
   code?: string;
   message?: string;
 }
+
+// ── Helpers ──────────────────────────────────────────────────────────
 
 function buildCacheKey(postcode: string, bedrooms: number | null, propertyType: string): string {
   return `marketData::${postcode.toUpperCase().replace(/\s+/g, '')}::${bedrooms ?? 'unknown'}::${propertyType}`;
@@ -78,10 +83,10 @@ function buildCacheKey(postcode: string, bedrooms: number | null, propertyType: 
 
 function calculateMargin(listingPrice: number | null, estimate: number | null): string | null {
   if (!listingPrice || !estimate || estimate === 0) return null;
-  
+
   const diff = listingPrice - estimate;
   const percentage = (diff / estimate) * 100;
-  
+
   if (Math.abs(percentage) < 2) {
     return 'Fairly priced';
   } else if (percentage > 0) {
@@ -91,15 +96,100 @@ function calculateMargin(listingPrice: number | null, estimate: number | null): 
   }
 }
 
+/** Map Rightmove property type to PropertyData property_type enum */
+function mapPropertyType(type: string): string | null {
+  const lower = type.toLowerCase();
+  if (lower.includes('detached') && !lower.includes('semi')) return 'detached_house';
+  if (lower.includes('semi')) return 'semi-detached_house';
+  if (lower.includes('terrace')) return 'terraced_house';
+  if (lower.includes('flat') || lower.includes('apartment')) return 'flat';
+  if (lower.includes('bungalow')) return 'bungalow';
+  return null; // unknown — skip valuation
+}
+
+/**
+ * Parse growth data array → 5-year cumulative % change.
+ * The API returns [[date, value, pct], ...] sorted chronologically.
+ * We compute total growth from the earliest to the latest value.
+ */
+function parseGrowth(data: [string, number, string | null][]): { fiveYear: number | null; trend: 'up' | 'down' | 'stable' | null } {
+  if (!Array.isArray(data) || data.length < 2) return { fiveYear: null, trend: null };
+
+  const first = data[0]?.[1];
+  const last = data[data.length - 1]?.[1];
+
+  if (typeof first !== 'number' || typeof last !== 'number' || first === 0) {
+    return { fiveYear: null, trend: null };
+  }
+
+  const fiveYear = ((last - first) / first) * 100;
+  const rounded = Math.round(fiveYear * 10) / 10;
+
+  let trend: 'up' | 'down' | 'stable' = 'stable';
+  if (rounded > 10) trend = 'up';
+  else if (rounded < -5) trend = 'down';
+
+  return { fiveYear: rounded, trend };
+}
+
+/**
+ * Find the council tax band for a specific address from the properties list.
+ * Falls back to the most common band if no match.
+ */
+function findCouncilTaxBand(
+  properties: { address: string; band: string }[],
+  doorNumber: string | null,
+  streetName: string | null
+): string | null {
+  if (!properties || properties.length === 0) return null;
+
+  // Try exact match first
+  if (doorNumber) {
+    const numMatch = properties.find((p) => {
+      const addr = p.address.toUpperCase();
+      return addr.startsWith(doorNumber.toUpperCase());
+    });
+    if (numMatch) return numMatch.band;
+  }
+
+  // Fall back to mode (most common band in this postcode)
+  const counts: Record<string, number> = {};
+  for (const p of properties) {
+    counts[p.band] = (counts[p.band] || 0) + 1;
+  }
+  let best: string | null = null;
+  let bestCount = 0;
+  for (const [band, count] of Object.entries(counts)) {
+    if (count > bestCount) {
+      best = band;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+function classifyFloodRisk(risk: string | null): 'low' | 'medium' | 'high' | null {
+  if (!risk) return null;
+  const lower = risk.toLowerCase();
+  if (lower.includes('very low') || lower.includes('low')) return 'low';
+  if (lower.includes('medium')) return 'medium';
+  if (lower.includes('high')) return 'high';
+  return null;
+}
+
+// ── Main fetch ──────────────────────────────────────────────────────
+
 export async function getMarketData(
   postcode: string,
   bedrooms: number | null,
   propertyType: string,
   listingPrice: number | null,
-  squareFootage: number | null
+  squareFootage: number | null,
+  doorNumber?: string | null,
+  streetName?: string | null
 ): Promise<MarketDataResult> {
   const cacheKey = buildCacheKey(postcode, bedrooms, propertyType);
-  
+
   const cached = marketDataCache.get(cacheKey);
   if (cached) {
     return { ...cached, cached: true };
@@ -112,12 +202,26 @@ export async function getMarketData(
       growth: { fiveYear: null, trend: null },
       ownership: { councilTaxBand: null, tenure: null, isConservationArea: false },
       risks: { crimeRating: null, floodRisk: null, floodRiskLevel: null },
-      comparables: { averagePrice: null, count: 0, timeRange: '' }
-    }
+      comparables: { averagePrice: null, count: 0, timeRange: '' },
+    },
   };
 
   try {
-    // Fetch all endpoints in parallel with Promise.allSettled
+    const mappedType = mapPropertyType(propertyType);
+
+    // Build valuation params — requires many fields; use sensible defaults
+    const valuationParams: Record<string, string | number | boolean | undefined | null> = {
+      postcode,
+      ...(bedrooms != null && { bedrooms: String(bedrooms) }),
+      ...(squareFootage && squareFootage >= 300 && { internal_area: String(squareFootage) }),
+      ...(mappedType && { property_type: mappedType }),
+      construction_date: 'pre_1914',
+      finish_quality: 'average',
+      outdoor_space: 'garden',
+      off_street_parking: '1',
+      ...(bedrooms != null && { bathrooms: String(Math.max(1, Math.ceil((bedrooms || 2) / 2))) }),
+    };
+
     const [
       valuationResult,
       pricesResult,
@@ -125,134 +229,121 @@ export async function getMarketData(
       councilTaxResult,
       crimeResult,
       floodRiskResult,
-      conservationResult
+      conservationResult,
     ] = await Promise.allSettled([
-      // Valuation endpoint - requires bedrooms and internal area for best results
-      propertyDataGet<ValuationSaleResponse>('valuation-sale', {
-        postcode,
-        ...(bedrooms && { bedrooms: String(bedrooms) }),
-        ...(squareFootage && { internal_area: String(squareFootage) })
-      }, { retriesOnThrottle: 2 }),
-      
-      // Prices endpoint for comparables
+      // Valuation — skip entirely if we don't have property_type
+      mappedType
+        ? propertyDataGet<ValuationSaleResponse>('valuation-sale', valuationParams, { retriesOnThrottle: 2 })
+        : Promise.resolve({ status: 'error' as const }),
+
       propertyDataGet<PricesResponse>('prices', {
         postcode,
         points: 20,
-        ...(bedrooms && { bedrooms: String(bedrooms) })
+        ...(bedrooms && { bedrooms: String(bedrooms) }),
       }, { retriesOnThrottle: 2 }),
-      
-      // Growth endpoint
+
       propertyDataGet<GrowthResponse>('growth', { postcode }, { retriesOnThrottle: 2 }),
-      
-      // Council tax endpoint
+
       propertyDataGet<CouncilTaxResponse>('council-tax', { postcode }, { retriesOnThrottle: 2 }),
-      
-      // Crime endpoint
+
       propertyDataGet<CrimeResponse>('crime', { postcode }, { retriesOnThrottle: 2 }),
-      
-      // Flood risk endpoint
+
       propertyDataGet<FloodRiskResponse>('flood-risk', { postcode }, { retriesOnThrottle: 2 }),
-      
-      // Conservation area endpoint
-      propertyDataGet<ConservationAreaResponse>('conservation-area', { postcode }, { retriesOnThrottle: 2 })
+
+      propertyDataGet<ConservationAreaResponse>('conservation-area', { postcode }, { retriesOnThrottle: 2 }),
     ]);
 
-    // Process valuation result
-    if (valuationResult.status === 'fulfilled' && valuationResult.value.status === 'success') {
-      const estimate = valuationResult.value.data?.estimate ?? null;
-      baseResult.data!.valuation.estimate = estimate;
-      baseResult.data!.valuation.margin = calculateMargin(listingPrice, estimate);
-      baseResult.data!.valuation.confidence = valuationResult.value.data?.confidence ?? null;
-    }
-
-    // Process prices result (for comparables)
-    if (pricesResult.status === 'fulfilled' && pricesResult.value.status === 'success') {
-      baseResult.data!.comparables!.averagePrice = pricesResult.value.data?.average ?? null;
-      baseResult.data!.comparables!.count = pricesResult.value.data?.points_analysed ?? 0;
-      if (pricesResult.value.data?.date_latest) {
-        const date = new Date(pricesResult.value.data.date_latest);
-        baseResult.data!.comparables!.timeRange = date.toLocaleDateString('en-GB', { 
-          month: 'short', 
-          year: 'numeric' 
-        });
+    // ── Valuation ───────────────────────────────────────────────
+    if (valuationResult.status === 'fulfilled') {
+      const v = valuationResult.value as ValuationSaleResponse;
+      if (v.status === 'success' && v.result?.estimate) {
+        const estimate = v.result.estimate;
+        baseResult.data!.valuation.estimate = estimate;
+        baseResult.data!.valuation.margin = calculateMargin(listingPrice, estimate);
+        if (v.result.estimate_lower && v.result.estimate_upper) {
+          baseResult.data!.valuation.confidence =
+            `£${v.result.estimate_lower.toLocaleString()} – £${v.result.estimate_upper.toLocaleString()}`;
+        }
       }
     }
 
-    // Process growth result
-    if (growthResult.status === 'fulfilled' && growthResult.value.status === 'success') {
-      baseResult.data!.growth.fiveYear = growthResult.value.data?.growth_5_year ?? 
-                                        (growthResult.value.data?.per_year ? growthResult.value.data.per_year * 5 : null);
-      
-      // Determine trend
-      const growth = baseResult.data!.growth.fiveYear;
-      if (growth !== null) {
-        if (growth > 10) baseResult.data!.growth.trend = 'up';
-        else if (growth < -5) baseResult.data!.growth.trend = 'down';
-        else baseResult.data!.growth.trend = 'stable';
+    // ── Prices (comparables) ────────────────────────────────────
+    if (pricesResult.status === 'fulfilled') {
+      const p = pricesResult.value as PricesResponse;
+      if (p.status === 'success' && p.data) {
+        baseResult.data!.comparables!.averagePrice = p.data.average ?? null;
+        baseResult.data!.comparables!.count = p.data.points_analysed ?? 0;
+        if (p.data.date_latest) {
+          const date = new Date(p.data.date_latest);
+          baseResult.data!.comparables!.timeRange = date.toLocaleDateString('en-GB', {
+            month: 'short',
+            year: 'numeric',
+          });
+        }
       }
     }
 
-    // Process council tax result
-    if (councilTaxResult.status === 'fulfilled' && councilTaxResult.value.status === 'success') {
-      baseResult.data!.ownership.councilTaxBand = councilTaxResult.value.data?.band ?? null;
+    // ── Growth ──────────────────────────────────────────────────
+    if (growthResult.status === 'fulfilled') {
+      const g = growthResult.value as GrowthResponse;
+      if (g.status === 'success' && Array.isArray(g.data)) {
+        const parsed = parseGrowth(g.data);
+        baseResult.data!.growth.fiveYear = parsed.fiveYear;
+        baseResult.data!.growth.trend = parsed.trend;
+      }
     }
 
-    // Process crime result
-    if (crimeResult.status === 'fulfilled' && crimeResult.value.status === 'success') {
-      baseResult.data!.risks.crimeRating = crimeResult.value.data?.rating ?? null;
+    // ── Council Tax ─────────────────────────────────────────────
+    if (councilTaxResult.status === 'fulfilled') {
+      const ct = councilTaxResult.value as CouncilTaxResponse;
+      if (ct.status === 'success') {
+        const band = findCouncilTaxBand(ct.properties || [], doorNumber ?? null, streetName ?? null);
+        baseResult.data!.ownership.councilTaxBand = band;
+      }
     }
 
-    // Process flood risk result
-    if (floodRiskResult.status === 'fulfilled' && floodRiskResult.value.status === 'success') {
-      baseResult.data!.risks.floodRisk = floodRiskResult.value.data?.risk ?? null;
-      baseResult.data!.risks.floodRiskLevel = floodRiskResult.value.data?.level ?? null;
+    // ── Crime ───────────────────────────────────────────────────
+    if (crimeResult.status === 'fulfilled') {
+      const c = crimeResult.value as CrimeResponse;
+      if (c.status === 'success') {
+        baseResult.data!.risks.crimeRating = c.crime_rating ?? null;
+      }
     }
 
-    // Process conservation area result
-    if (conservationResult.status === 'fulfilled' && conservationResult.value.status === 'success') {
-      baseResult.data!.ownership.isConservationArea = conservationResult.value.data?.in_conservation_area ?? false;
+    // ── Flood Risk ──────────────────────────────────────────────
+    if (floodRiskResult.status === 'fulfilled') {
+      const f = floodRiskResult.value as FloodRiskResponse;
+      if (f.status === 'success') {
+        baseResult.data!.risks.floodRisk = f.flood_risk ?? null;
+        baseResult.data!.risks.floodRiskLevel = classifyFloodRisk(f.flood_risk ?? null);
+      }
     }
 
-    // Mark as successful if we got at least some data
-    const hasSomeData = 
+    // ── Conservation Area ───────────────────────────────────────
+    if (conservationResult.status === 'fulfilled') {
+      const ca = conservationResult.value as ConservationAreaResponse;
+      if (ca.status === 'success') {
+        baseResult.data!.ownership.isConservationArea = ca.conservation_area ?? false;
+      }
+    }
+
+    // ── Success check ───────────────────────────────────────────
+    const hasSomeData =
       baseResult.data!.valuation.estimate !== null ||
       baseResult.data!.ownership.councilTaxBand !== null ||
       baseResult.data!.risks.crimeRating !== null ||
       baseResult.data!.risks.floodRisk !== null ||
       baseResult.data!.growth.fiveYear !== null ||
       (baseResult.data!.comparables?.count ?? 0) > 0;
-    
+
     baseResult.success = hasSomeData;
 
-    // Cache the result
     marketDataCache.set(cacheKey, baseResult, TTL.MARKET_DATA);
-
     return baseResult;
-
   } catch (error) {
-    // Return partial data even if overall fetch had issues
     baseResult.success = false;
     baseResult.error = error instanceof PropertyDataError ? error.message : 'Failed to fetch market data';
-    
-    // Still cache failures briefly (5 minutes) to avoid hammering the API
     marketDataCache.set(cacheKey, baseResult, 300);
-    
     return baseResult;
   }
-}
-
-export async function getMarketDataBatch(
-  requests: Array<{
-    postcode: string;
-    bedrooms: number | null;
-    propertyType: string;
-    listingPrice: number | null;
-    squareFootage: number | null;
-  }>
-): Promise<MarketDataResult[]> {
-  return Promise.all(
-    requests.map(req => 
-      getMarketData(req.postcode, req.bedrooms, req.propertyType, req.listingPrice, req.squareFootage)
-    )
-  );
 }

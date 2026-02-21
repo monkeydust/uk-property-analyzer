@@ -180,7 +180,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
           property.bedrooms,
           property.propertyType,
           property.price,
-          property.squareFootage
+          property.squareFootage,
+          property.address.doorNumber,
+          property.address.streetName
         );
 
         property.marketData = marketData;

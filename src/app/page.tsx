@@ -341,6 +341,35 @@ function HomeContent() {
     // Skip re-fetching if loaded from a saved property
     if (loadedFromSaveRef.current) {
       loadedFromSaveRef.current = false;
+      // Still fetch market data if it wasn't saved with this property
+      if (!result.property.marketData?.success && result.property.address.postcode) {
+        setMarketDataLoading(true);
+        fetch('/api/market-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            postcode: result.property.address.postcode,
+            bedrooms: result.property.bedrooms,
+            propertyType: result.property.propertyType,
+            listingPrice: result.property.price,
+            squareFootage: result.property.squareFootage,
+          }),
+        })
+          .then(res => res.json())
+          .then((data: MarketDataResult) => {
+            if (activePropertyIdRef.current === result.property.id) {
+              setMarketData(data);
+            }
+          })
+          .catch(() => {})
+          .finally(() => {
+            if (activePropertyIdRef.current === result.property.id) {
+              setMarketDataLoading(false);
+            }
+          });
+      } else {
+        setMarketDataLoading(false);
+      }
       return;
     }
 
@@ -380,8 +409,7 @@ function HomeContent() {
     setSchoolsError(null);
     setSchoolsData(null);
 
-    // Market data loading
-    setMarketDataLoading(true);
+    // Market data reset
     setMarketData(null);
 
     const coords = result.property.coordinates;
@@ -434,6 +462,7 @@ function HomeContent() {
 
     // Fetch market data in parallel
     if (result.property.address.postcode) {
+      setMarketDataLoading(true);
       fetch('/api/market-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -471,6 +500,8 @@ function HomeContent() {
             setMarketDataLoading(false);
           }
         });
+    } else {
+      setMarketDataLoading(false);
     }
 
     // Fetch stations and commute in parallel (if we have coordinates)

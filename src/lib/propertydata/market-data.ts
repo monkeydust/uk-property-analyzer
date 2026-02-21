@@ -227,37 +227,38 @@ export async function getMarketData(
       ...(bedrooms != null && { bathrooms: String(Math.max(1, Math.ceil((bedrooms || 2) / 2))) }),
     };
 
-    // Call endpoints sequentially to avoid PropertyData rate limits.
-    // The plot size chain in /api/analyze may have just consumed several calls,
-    // so parallel requests here reliably trigger throttling.
-    async function safeGet<T>(path: string, params: Record<string, string | number | boolean | undefined | null>): Promise<{ status: 'fulfilled'; value: T } | { status: 'rejected' }> {
-      try {
-        const value = await propertyDataGet<T>(path, params, { retriesOnThrottle: 3 });
-        return { status: 'fulfilled', value };
-      } catch {
-        return { status: 'rejected' };
-      }
-    }
+    // All calls go through the global serial queue in client.ts
+    // which enforces a minimum gap between requests. We can safely
+    // use Promise.allSettled — the queue serialises them automatically.
+    const [
+      valuationResult,
+      pricesResult,
+      growthResult,
+      councilTaxResult,
+      crimeResult,
+      floodRiskResult,
+      conservationResult,
+    ] = await Promise.allSettled([
+      mappedType
+        ? propertyDataGet<ValuationSaleResponse>('valuation-sale', valuationParams, { retriesOnThrottle: 2 })
+        : Promise.reject('no property type'),
 
-    const valuationResult = mappedType
-      ? await safeGet<ValuationSaleResponse>('valuation-sale', valuationParams)
-      : { status: 'rejected' as const };
+      propertyDataGet<PricesResponse>('prices', {
+        postcode,
+        points: 20,
+        ...(bedrooms && { bedrooms: String(bedrooms) }),
+      }, { retriesOnThrottle: 2 }),
 
-    const pricesResult = await safeGet<PricesResponse>('prices', {
-      postcode,
-      points: 20,
-      ...(bedrooms && { bedrooms: String(bedrooms) }),
-    });
+      propertyDataGet<GrowthResponse>('growth', { postcode }, { retriesOnThrottle: 2 }),
 
-    const growthResult = await safeGet<GrowthResponse>('growth', { postcode });
+      propertyDataGet<CouncilTaxResponse>('council-tax', { postcode }, { retriesOnThrottle: 2 }),
 
-    const councilTaxResult = await safeGet<CouncilTaxResponse>('council-tax', { postcode });
+      propertyDataGet<CrimeResponse>('crime', { postcode }, { retriesOnThrottle: 2 }),
 
-    const crimeResult = await safeGet<CrimeResponse>('crime', { postcode });
+      propertyDataGet<FloodRiskResponse>('flood-risk', { postcode }, { retriesOnThrottle: 2 }),
 
-    const floodRiskResult = await safeGet<FloodRiskResponse>('flood-risk', { postcode });
-
-    const conservationResult = await safeGet<ConservationAreaResponse>('conservation-area', { postcode });
+      propertyDataGet<ConservationAreaResponse>('conservation-area', { postcode }, { retriesOnThrottle: 2 }),
+    ]);
 
     // ── Valuation ───────────────────────────────────────────────
     if (valuationResult.status === 'fulfilled') {

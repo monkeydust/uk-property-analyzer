@@ -12,7 +12,7 @@ export interface SavedProperty {
     aiModel: string | null;
     ai2Analysis?: string | null;
     ai2Model?: string | null;
-    commuteTimes: unknown[];
+    commuteTimes: Property['commuteTimes'];
   };
 }
 

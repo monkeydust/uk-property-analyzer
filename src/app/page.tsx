@@ -114,6 +114,9 @@ function HomeContent() {
   // Ref to track the currently active property ID to avoid UI state collisions
   // from background tasks processing previous searches
   const activePropertyIdRef = useRef<string | null>(null);
+  
+  // Ref to track latest commute times to prevent race conditions in parallel saves
+  const commuteTimesRef = useRef<Property['commuteTimes']>([]);
 
   // Saved properties state
   const [savedProperties, setSavedProperties] = useState<SavedProperty[]>([]);
@@ -147,8 +150,13 @@ function HomeContent() {
   const handlePropertyClick = (property: SavedProperty) => {
     setSelectedProperty(property);
     activePropertyIdRef.current = property.id;
+    // Reset commute times ref when loading a saved property
+    commuteTimesRef.current = property.data.commuteTimes || [];
     setResult({
-      property: property.data.property,
+      property: {
+        ...property.data.property,
+        commuteTimes: property.data.commuteTimes || [],
+      },
       postcode: property.data.property.address.postcode,
     });
     setSchoolsData(property.data.schools);
@@ -254,13 +262,15 @@ function HomeContent() {
       // 1. Mark as current and initial save (so it shows up on dashboard immediately)
       const property = data.data.property;
       activePropertyIdRef.current = property.id;
+      // Reset commute times ref for new property search
+      commuteTimesRef.current = [];
       
       saveProperty(property.id, property.sourceUrl, {
         property,
         schools: null,
         aiAnalysis: null,
         aiModel: null,
-        commuteTimes: [],
+        commuteTimes: commuteTimesRef.current,
       }).then(() => {
         getSavedProperties().then(setSavedProperties);
       });
@@ -363,7 +373,7 @@ function HomeContent() {
             schools: data,
             aiAnalysis: aiAnalysis,
             aiModel: aiModel,
-            commuteTimes: initialProperty.commuteTimes || [],
+            commuteTimes: commuteTimesRef.current,
           }).then(() => {
             getSavedProperties().then(setSavedProperties);
           });
@@ -415,7 +425,7 @@ function HomeContent() {
               schools: schoolsData,
               aiAnalysis: aiAnalysis,
               aiModel: aiModel,
-              commuteTimes: initialProperty.commuteTimes || [],
+              commuteTimes: commuteTimesRef.current,
             }).then(() => {
               // Refresh dashboard list
               getSavedProperties().then(setSavedProperties);
@@ -449,6 +459,9 @@ function HomeContent() {
               ...initialProperty,
               commuteTimes: data.commuteTimes,
             };
+            
+            // Update ref with latest commute times for other parallel saves
+            commuteTimesRef.current = data.commuteTimes || [];
 
             // 2. Save updated data to DB
             saveProperty(propertyId, propertyUrl, {
@@ -456,7 +469,7 @@ function HomeContent() {
               schools: schoolsData,
               aiAnalysis: aiAnalysis,
               aiModel: aiModel,
-              commuteTimes: data.commuteTimes || [],
+              commuteTimes: commuteTimesRef.current,
             }).then(() => {
               getSavedProperties().then(setSavedProperties);
             });
@@ -521,7 +534,7 @@ function HomeContent() {
             schools: initialSchools,
             aiAnalysis: data.analysis,
             aiModel: data.model || null,
-            commuteTimes: initialProperty.commuteTimes || [],
+            commuteTimes: commuteTimesRef.current,
           }).then(() => {
             getSavedProperties().then(setSavedProperties);
           });
@@ -1019,9 +1032,13 @@ function HomeContent() {
               )}
             </div>
 
-            {/* Commute Times Section */}
-            {commuteLoading && (
+            {/* Commute Times Section - show if property has coordinates (can calculate) */}
+            {(commuteLoading || (result.property.coordinates && (!result.property.commuteTimes || result.property.commuteTimes.length === 0))) && (
               <div className="p-6 bg-white dark:bg-slate-900 rounded-xl shadow-md">
+                <div className="flex items-center gap-2 mb-4">
+                  <MapPin className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                  <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Commute Times</h2>
+                </div>
                 <div className="flex items-center gap-3 py-4 text-slate-400">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span className="text-sm">Calculating commute times...</span>

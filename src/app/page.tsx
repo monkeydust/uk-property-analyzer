@@ -1033,7 +1033,7 @@ function HomeContent() {
             </div>
 
             {/* Commute Times Section */}
-            {(commuteLoading || result.property.commuteTimes) && (
+            {(commuteLoading || result.property.coordinates) && (
               <div className="p-6 bg-white dark:bg-slate-900 rounded-xl shadow-md">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">

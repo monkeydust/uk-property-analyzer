@@ -7,7 +7,7 @@ import type { MarketDataResult } from '@/lib/types/property';
 export async function POST(request: NextRequest): Promise<NextResponse<MarketDataResult>> {
   try {
     const body = await request.json();
-    const { postcode, bedrooms, propertyType, listingPrice, squareFootage, bustCache } = body;
+    const { postcode, bedrooms, propertyType, listingPrice, squareFootage, doorNumber, streetName, bustCache } = body;
 
     if (!postcode || typeof postcode !== 'string') {
       return NextResponse.json(
@@ -37,7 +37,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<MarketDat
       bedrooms ?? null,
       propertyType ?? '',
       listingPrice ?? null,
-      squareFootage ?? null
+      squareFootage ?? null,
+      doorNumber ?? null,
+      streetName ?? null
     );
 
     if (result.success) {

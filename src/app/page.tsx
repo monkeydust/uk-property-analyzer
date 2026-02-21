@@ -472,6 +472,8 @@ function HomeContent() {
           propertyType: result.property.propertyType,
           listingPrice: result.property.price,
           squareFootage: result.property.squareFootage,
+          doorNumber: result.property.address.doorNumber,
+          streetName: result.property.address.streetName,
           bustCache: shouldBustCache,
         }),
       })
@@ -1005,7 +1007,7 @@ function HomeContent() {
               {!marketDataLoading && (
                 <div className="pt-4 mt-4">
                   <MarketInsightsCard 
-                    marketData={marketData || result.property.marketData} 
+                    marketData={marketData} 
                     listingPrice={result.property.price}
                   />
                 </div>

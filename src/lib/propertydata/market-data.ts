@@ -231,16 +231,18 @@ export async function getMarketData(
     const mappedType = mapPropertyType(propertyType);
 
     // Build valuation params — requires many fields; use sensible defaults
+    // PropertyData API accepts bedrooms 1-5 only; cap larger properties at 5
+    const cappedBedrooms = bedrooms != null ? Math.min(Math.max(bedrooms, 1), 5) : null;
     const valuationParams: Record<string, string | number | boolean | undefined | null> = {
       postcode,
-      ...(bedrooms != null && { bedrooms: String(bedrooms) }),
+      ...(cappedBedrooms != null && { bedrooms: String(cappedBedrooms) }),
       ...(squareFootage && squareFootage >= 300 && { internal_area: String(squareFootage) }),
       ...(mappedType && { property_type: mappedType }),
       construction_date: 'pre_1914',
       finish_quality: 'average',
       outdoor_space: 'garden',
       off_street_parking: '1',
-      ...(bedrooms != null && { bathrooms: String(Math.max(1, Math.ceil((bedrooms || 2) / 2))) }),
+      ...(cappedBedrooms != null && { bathrooms: String(Math.max(1, Math.ceil((cappedBedrooms || 2) / 2))) }),
     };
 
     // All calls go through the global serial queue in client.ts

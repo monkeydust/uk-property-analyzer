@@ -39,10 +39,10 @@ function getGrowthIcon(trend: string | null | undefined) {
 
 function getMarginBadge(margin: string | null, estimate: number | null, listingPrice: number | null) {
   if (!margin || !estimate || !listingPrice) return null;
-  
+
   const isOverpriced = margin.toLowerCase().includes('overpriced');
   const isUnderpriced = margin.toLowerCase().includes('underpriced');
-  
+
   if (isOverpriced) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
@@ -51,7 +51,7 @@ function getMarginBadge(margin: string | null, estimate: number | null, listingP
       </span>
     );
   }
-  
+
   if (isUnderpriced) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
@@ -60,7 +60,7 @@ function getMarginBadge(margin: string | null, estimate: number | null, listingP
       </span>
     );
   }
-  
+
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
       <CheckCircle className="w-3 h-3" />
@@ -96,14 +96,14 @@ export function MarketInsightsCard({ marketData, listingPrice }: MarketInsightsC
   }
 
   const data = marketData.data;
-  
+
   // Check if this is partial data (only some fields available)
-  const isPartialData = 
+  const isPartialData =
     data?.valuation?.estimate === null ||
     data?.growth?.fiveYear === null ||
     data?.ownership?.councilTaxBand === null ||
     data?.risks?.crimeRating === null;
-  
+
   return (
     <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
       <div className="flex items-center justify-between mb-4">
@@ -138,11 +138,11 @@ export function MarketInsightsCard({ marketData, listingPrice }: MarketInsightsC
             )}
           </div>
 
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">5-Year Growth</p>
             <div className="flex items-center gap-2">
               <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                {data?.growth?.fiveYear != null 
+                {data?.growth?.fiveYear != null
                   ? `${data.growth.fiveYear > 0 ? '+' : ''}${data.growth.fiveYear.toFixed(1)}%`
                   : 'N/A'
                 }
@@ -152,7 +152,7 @@ export function MarketInsightsCard({ marketData, listingPrice }: MarketInsightsC
           </div>
 
           {data?.comparables && data.comparables.count > 0 && (
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
               <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Recent Sales</p>
               <p className="text-sm text-slate-700 dark:text-slate-300">
                 {data.comparables.count} sales avg {formatCurrency(data.comparables.averagePrice)}
@@ -179,7 +179,7 @@ export function MarketInsightsCard({ marketData, listingPrice }: MarketInsightsC
           </div>
 
           {data?.ownership.tenure && (
-            <div className="flex items-start gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-start gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
               <div className="w-5 h-5 flex-shrink-0" /> {/* Spacer */}
               <div>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Tenure</p>
@@ -191,7 +191,7 @@ export function MarketInsightsCard({ marketData, listingPrice }: MarketInsightsC
           )}
 
           {data?.ownership.isConservationArea && (
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
                 <AlertTriangle className="w-3 h-3" />
                 Conservation Area
@@ -215,7 +215,7 @@ export function MarketInsightsCard({ marketData, listingPrice }: MarketInsightsC
             </div>
           </div>
 
-          <div className="flex items-start gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-start gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
             <div className="w-5 h-5 flex-shrink-0" /> {/* Spacer */}
             <div>
               <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Flood Risk</p>
@@ -223,10 +223,6 @@ export function MarketInsightsCard({ marketData, listingPrice }: MarketInsightsC
                 {data?.risks.floodRisk || 'N/A'}
               </p>
             </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400">
-            <p>Sources: HM Land Registry, Police.uk, Environment Agency</p>
           </div>
         </div>
       </div>

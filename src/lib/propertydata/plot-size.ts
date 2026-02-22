@@ -234,30 +234,23 @@ export async function getPlotSizeAcres(input: {
         results: 30,
       }, { retriesOnThrottle: 2 });
       if (uprns.status === 'success' && Array.isArray(uprns.data) && uprns.data.length > 0) {
-        const ordered = pickNearest(uprns.data, latitude, longitude);
+        const rawRows = uprns.data as Record<string, unknown>[];
         const street = (input.streetName || '').trim().toUpperCase();
         const door = (input.doorNumber || '').trim();
         const numToken = (door.match(/^\d+/)?.[0]) || '';
 
-        // Priority 1: exact number + street match
+        // Search the raw response directly — TypeScript types may strip unknown fields
         const exactMatch = (street && numToken)
-          ? ordered.filter((r) => {
-              const primary = String(r.addressParts?.primary || '').trim();
-              const s = (r.addressParts?.street || '').toUpperCase();
+          ? rawRows.filter((r) => {
+              const parts = r.addressParts as Record<string, unknown> | undefined;
+              if (!parts) return false;
+              const primary = String(parts.primary || '').trim();
+              const s = String(parts.street || '').toUpperCase();
               return primary === numToken && s === street;
             })
           : [];
 
-        // Priority 2: same street (different number — fallback)
-        const sameStreet = street
-          ? ordered.filter((r) => {
-              const s = (r.addressParts?.street || '').toUpperCase();
-              return s === street;
-            })
-          : [];
-
         // If we have an exact door+street match, only try that one UPRN.
-        // Iterating many candidates wastes queue slots and can exhaust the throttle budget.
         if (exactMatch.length > 0) {
           const row = exactMatch[0];
           const uprn = row.uprn !== undefined && row.uprn !== null ? String(row.uprn) : null;
@@ -269,7 +262,7 @@ export async function getPlotSizeAcres(input: {
                 plotSizeAcres,
                 uprn,
                 titleNumber,
-                matchedAddress: row.address ? String(row.address) : null,
+                matchedAddress: typeof row.address === 'string' ? row.address : null,
                 method: 'address-match-uprn',
               };
               plotSizeCache.set(cacheKey, result, TTL.PLOT_SIZE);
@@ -278,8 +271,18 @@ export async function getPlotSizeAcres(input: {
           }
         }
 
+        // Priority 2: same street (different number — fallback)
+        const sameStreet = street
+          ? rawRows.filter((r) => {
+              const parts = r.addressParts as Record<string, unknown> | undefined;
+              if (!parts) return false;
+              return String(parts.street || '').toUpperCase() === street;
+            })
+          : [];
+
         // No exact match — try up to 3 same-street candidates
-        const fallbackCandidates = (sameStreet.length > 0 ? sameStreet : ordered).slice(0, 3);
+        const ordered = pickNearest(uprns.data, latitude, longitude);
+        const fallbackCandidates = (sameStreet.length > 0 ? sameStreet : ordered as Record<string, unknown>[]).slice(0, 3);
         for (const row of fallbackCandidates) {
           const uprn = row.uprn !== undefined && row.uprn !== null ? String(row.uprn) : null;
           if (!uprn) continue;
@@ -290,7 +293,7 @@ export async function getPlotSizeAcres(input: {
             plotSizeAcres,
             uprn,
             titleNumber,
-            matchedAddress: row.address ? String(row.address) : null,
+            matchedAddress: typeof row.address === 'string' ? row.address : null,
             method: 'uprns-location',
           };
           plotSizeCache.set(cacheKey, result, TTL.PLOT_SIZE);

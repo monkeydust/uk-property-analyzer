@@ -212,17 +212,21 @@ export async function getMarketData(
     success: false,
     data: {
       valuation: { estimate: null, margin: null, confidence: null },
-      growth: { fiveYear: null, trend: null },
+      growth: { fiveYear: null, trend: null, yearByYear: [] },
       ownership: {
         councilTaxBand: null,
+        councilTaxAmount: null,
+        councilName: null,
+        councilRating: null,
         tenure: null,
         isConservationArea: false,
+        conservationAreaName: null,
         plotSizeAcres: null,
         plotSizeMethod: null,
         plotSizeUprn: null,
         plotSizeTitleNumber: null,
       },
-      risks: { crimeRating: null, floodRisk: null, floodRiskLevel: null },
+      risks: { crimeRating: null, crimesPerThousand: null, crimesLast12m: null, crimePopulation: null, crimeTypes: undefined, floodRisk: null, floodRiskLevel: null },
       comparables: { averagePrice: null, count: 0, timeRange: '' },
     },
   };
@@ -328,6 +332,12 @@ export async function getMarketData(
         const parsed = parseGrowth(g.data);
         baseResult.data!.growth.fiveYear = parsed.fiveYear;
         baseResult.data!.growth.trend = parsed.trend;
+        // Year-by-year breakdown for expanded view
+        baseResult.data!.growth.yearByYear = g.data.map(([year, value, pctStr]) => ({
+          year,
+          value,
+          pct: pctStr !== null ? parseFloat(pctStr) : null,
+        }));
       }
     }
 
@@ -337,6 +347,12 @@ export async function getMarketData(
       if (ct.status === 'success') {
         const band = findCouncilTaxBand(ct.properties || [], doorNumber ?? null, streetName ?? null);
         baseResult.data!.ownership.councilTaxBand = band;
+        baseResult.data!.ownership.councilName = ct.council ?? null;
+        baseResult.data!.ownership.councilRating = ct.council_rating ?? null;
+        // Get actual £ amount for the matched band
+        if (band && ct.council_tax && ct.council_tax[band]) {
+          baseResult.data!.ownership.councilTaxAmount = ct.council_tax[band];
+        }
       }
     }
 
@@ -345,6 +361,12 @@ export async function getMarketData(
       const c = crimeResult.value as CrimeResponse;
       if (c.status === 'success') {
         baseResult.data!.risks.crimeRating = c.crime_rating ?? null;
+        baseResult.data!.risks.crimesPerThousand = c.crimes_per_thousand ?? null;
+        baseResult.data!.risks.crimesLast12m = c.crimes_last_12m ?? null;
+        baseResult.data!.risks.crimePopulation = c.population ?? null;
+        if (c.types && Object.keys(c.types).length > 0) {
+          baseResult.data!.risks.crimeTypes = c.types;
+        }
       }
     }
 
@@ -362,6 +384,7 @@ export async function getMarketData(
       const ca = conservationResult.value as ConservationAreaResponse;
       if (ca.status === 'success') {
         baseResult.data!.ownership.isConservationArea = ca.conservation_area ?? false;
+        baseResult.data!.ownership.conservationAreaName = ca.conservation_area_name ?? null;
       }
     }
 

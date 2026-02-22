@@ -93,11 +93,16 @@ export interface MarketDataResult {
     growth: {
       fiveYear: number | null; // Percentage
       trend: 'up' | 'down' | 'stable' | null;
+      yearByYear?: { year: string; value: number; pct: number | null }[];
     };
     ownership: {
       councilTaxBand: string | null;
+      councilTaxAmount?: string | null;      // Actual £ for this band
+      councilName?: string | null;           // e.g. "London Borough of Barnet"
+      councilRating?: string | null;         // Council performance rating
       tenure: string | null;
       isConservationArea: boolean;
+      conservationAreaName?: string | null;  // Name of conservation area
       plotSizeAcres?: number | null;
       plotSizeMethod?: string | null;
       plotSizeUprn?: string | null;
@@ -105,6 +110,10 @@ export interface MarketDataResult {
     };
     risks: {
       crimeRating: string | null;
+      crimesPerThousand?: number | null;     // Crime rate per 1,000 pop
+      crimesLast12m?: number | null;         // Total crimes in 12 months
+      crimePopulation?: number | null;       // Local population
+      crimeTypes?: Record<string, number>;   // Breakdown by category
       floodRisk: string | null;
       floodRiskLevel?: 'low' | 'medium' | 'high' | null;
     };

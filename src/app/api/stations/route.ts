@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getWalkingDistances, findNearbyTrainStations, findNearbyTubeStations } from '@/lib/utils/google-maps';
 import { getTubeLinesForStations, getTrainOperatorsForStations, getOperatorDisplayNames } from '@/lib/utils/station-lines';
+import { stationsCache, TTL } from '@/lib/cache';
 import logger from '@/lib/logger';
+
+function stationsCacheKey(lat: number, lng: number): string {
+  return `stations::${lat.toFixed(4)}::${lng.toFixed(4)}`;
+}
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const lat = parseFloat(searchParams.get('lat') || '');
     const lng = parseFloat(searchParams.get('lng') || '');
+    const bustCache = searchParams.get('bustCache') === '1';
 
     if (isNaN(lat) || isNaN(lng)) {
       return NextResponse.json(
@@ -16,7 +22,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    logger.info(`Fetching stations near ${lat}, ${lng}`, 'stations');
+    const cacheKey = stationsCacheKey(lat, lng);
+
+    if (bustCache) {
+      logger.info(`Cache BUST requested | stations`, 'stations');
+      stationsCache.delete(cacheKey);
+    }
+
+    const cached = stationsCache.get(cacheKey);
+    if (cached) {
+      logger.info(`Cache HIT | stations near ${lat}, ${lng}`, 'stations');
+      return NextResponse.json({ ...cached, logs: logger.getAll() });
+    }
+
+    logger.info(`Cache MISS — fetching stations near ${lat}, ${lng}`, 'stations');
 
     // Fetch train and tube stations in parallel
     const [trainStationsRaw, tubeStationsRaw] = await Promise.all([
@@ -96,10 +115,17 @@ export async function GET(request: NextRequest) {
       })(),
     ]);
 
-    return NextResponse.json({
+    const responseData = {
       success: true,
       nearestStations,
       nearestTubeStations,
+    };
+
+    stationsCache.set(cacheKey, responseData, TTL.STATIONS);
+    logger.info(`Cached stations for ${TTL.STATIONS / 3600 / 24}d`, 'stations');
+
+    return NextResponse.json({
+      ...responseData,
       logs: logger.getAll(),
     });
   } catch (error) {

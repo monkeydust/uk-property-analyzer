@@ -60,7 +60,11 @@ export const aiCache = new TTLCache<string>();   // 24h — AI reports are expen
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const plotSizeCache = new TTLCache<any>();   // 30 days — title plot sizes are stable
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const marketDataCache = new TTLCache<any>(); // 24h — market data changes slowly
+export const marketDataCache = new TTLCache<any>(); // 7 days — market data changes slowly
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const stationsCache = new TTLCache<any>();   // 7 days — station proximity is static
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const commuteCache = new TTLCache<any>();    // 7 days — commute times are stable
 
 export const TTL = {
   PROPERTY: 60 * 60 * 24,       // 24 hours
@@ -68,4 +72,6 @@ export const TTL = {
   AI: 60 * 60 * 24,       // 24 hours
   PLOT_SIZE: 60 * 60 * 24 * 30, // 30 days
   MARKET_DATA: 60 * 60 * 24 * 7, // 7 days
+  STATIONS: 60 * 60 * 24 * 7,   // 7 days
+  COMMUTE: 60 * 60 * 24 * 7,   // 7 days
 };

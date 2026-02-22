@@ -280,9 +280,9 @@ export async function getPlotSizeAcres(input: {
           })
           : [];
 
-        // No exact match — try up to 3 same-street candidates
+        // No exact match — try nearest same-street candidate (limit to 1 to save API calls)
         const ordered = pickNearest(uprns.data, latitude, longitude);
-        const fallbackCandidates = (sameStreet.length > 0 ? sameStreet : ordered as Record<string, unknown>[]).slice(0, 3);
+        const fallbackCandidates = (sameStreet.length > 0 ? sameStreet : ordered as Record<string, unknown>[]).slice(0, 1);
         for (const row of fallbackCandidates) {
           const uprn = row.uprn !== undefined && row.uprn !== null ? String(row.uprn) : null;
           if (!uprn) continue;

@@ -352,8 +352,14 @@ function HomeContent() {
     // Skip re-fetching if loaded from a saved property
     if (loadedFromSaveRef.current) {
       loadedFromSaveRef.current = false;
-      // Still fetch market data if it wasn't saved with this property
-      if (!result.property.marketData?.success && result.property.address.postcode) {
+      // Still fetch market data if it wasn't saved with this property,
+      // or if it's missing the newer detailed fields (crime breakdown, council tax amount, etc.)
+      const existingMarket = result.property.marketData;
+      const isMissingDetailedFields = existingMarket?.success && (
+        existingMarket.data?.risks?.crimeTypes === undefined ||
+        existingMarket.data?.ownership?.councilTaxAmount === undefined
+      );
+      if ((!existingMarket?.success || isMissingDetailedFields) && result.property.address.postcode) {
         setMarketDataLoading(true);
         fetch('/api/market-data', {
           method: 'POST',

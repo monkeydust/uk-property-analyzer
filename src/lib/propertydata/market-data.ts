@@ -97,15 +97,22 @@ function calculateMargin(listingPrice: number | null, estimate: number | null): 
   }
 }
 
-/** Map Rightmove property type to PropertyData property_type enum */
+/** Map Rightmove property type to PropertyData property_type enum.
+ *  PropertyData accepts: flat, detached_house, terraced_house, semi-detached_house.
+ *  We map as many Rightmove types as possible; default to detached_house for unknowns
+ *  rather than skipping the valuation entirely. */
 function mapPropertyType(type: string): string | null {
   const lower = type.toLowerCase();
   if (lower.includes('detached') && !lower.includes('semi')) return 'detached_house';
-  if (lower.includes('semi')) return 'semi-detached_house';
-  if (lower.includes('terrace')) return 'terraced_house';
-  if (lower.includes('flat') || lower.includes('apartment')) return 'flat';
-  if (lower.includes('bungalow')) return 'bungalow';
-  return null; // unknown — skip valuation
+  if (lower.includes('semi') || lower.includes('link')) return 'semi-detached_house';
+  if (lower.includes('terrace') || lower.includes('cottage') || lower.includes('town house') || lower.includes('townhouse') || lower.includes('end of terrace')) return 'terraced_house';
+  if (lower.includes('flat') || lower.includes('apartment') || lower.includes('maisonette') || lower.includes('studio')) return 'flat';
+  if (lower.includes('bungalow')) return 'detached_house'; // closest match — API doesn't support bungalow
+  // Generic "house" or any other type — default to detached_house rather than skipping entirely
+  if (lower.includes('house') || lower.includes('property') || lower.includes('home')) return 'detached_house';
+  // Last resort — still attempt valuation with detached_house
+  console.warn(`[market-data] Unknown property type "${type}" — defaulting to detached_house for valuation`);
+  return 'detached_house';
 }
 
 /**

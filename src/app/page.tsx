@@ -995,8 +995,8 @@ function HomeContent() {
                           <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                             <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Plot</p>
                             <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                              {typeof result.property.plotSizeAcres === 'number'
-                                ? <>{result.property.plotSizeAcres.toFixed(2)} <span className="text-sm font-medium">acres</span>{result.property.plotSizeMethod && result.property.plotSizeMethod !== 'address-match-uprn' && <span className="text-amber-500 ml-0.5" title="Approximate — based on a nearby property on the same street">*</span>}</>
+                              {typeof result.property.marketData?.data?.ownership?.plotSizeAcres === 'number'
+                                ? <>{result.property.marketData.data.ownership.plotSizeAcres.toFixed(2)} <span className="text-sm font-medium">acres</span>{result.property.marketData.data.ownership.plotSizeMethod && result.property.marketData.data.ownership.plotSizeMethod !== 'address-match-uprn' && <span className="text-amber-500 ml-0.5" title="Approximate — based on a nearby property on the same street">*</span>}</>
                                 : 'N/A'}
                             </p>
                           </div>

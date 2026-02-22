@@ -449,14 +449,16 @@ function HomeContent() {
         if (data.logs) mergeLogs(data.logs);
         if (data.success) {
           // 1. Save results to DB for this specific property
-          saveProperty(propertyId, propertyUrl, {
-            property: initialProperty,
-            schools: data,
-            aiAnalysis: aiAnalysis,
-            aiModel: aiModel,
-            commuteTimes: commuteTimesRef.current,
-          }).then(() => {
-            getSavedProperties().then(setSavedProperties);
+          getProperty(propertyId).then(existingSaved => {
+            saveProperty(propertyId, propertyUrl, {
+              property: existingSaved?.data.property || initialProperty,
+              schools: data,
+              aiAnalysis: existingSaved?.data.aiAnalysis || aiAnalysis,
+              aiModel: existingSaved?.data.aiModel || aiModel,
+              commuteTimes: existingSaved?.data.commuteTimes || commuteTimesRef.current,
+            }).then(() => {
+              getSavedProperties().then(setSavedProperties);
+            });
           });
 
           // 2. Update UI ONLY if active
@@ -562,14 +564,16 @@ function HomeContent() {
                   nearestTubeStations: data.nearestTubeStations,
                 };
                 // Save merged data to DB
-                saveProperty(propertyId, propertyUrl, {
-                  property: merged,
-                  schools: schoolsData,
-                  aiAnalysis: aiAnalysis,
-                  aiModel: aiModel,
-                  commuteTimes: commuteTimesRef.current,
-                }).then(() => {
-                  getSavedProperties().then(setSavedProperties);
+                getProperty(propertyId).then(existingSaved => {
+                  saveProperty(propertyId, propertyUrl, {
+                    property: merged,
+                    schools: existingSaved?.data.schools || schoolsData,
+                    aiAnalysis: existingSaved?.data.aiAnalysis || aiAnalysis,
+                    aiModel: existingSaved?.data.aiModel || aiModel,
+                    commuteTimes: existingSaved?.data.commuteTimes || commuteTimesRef.current,
+                  }).then(() => {
+                    getSavedProperties().then(setSavedProperties);
+                  });
                 });
                 return { ...prev, property: merged };
               });
@@ -602,14 +606,16 @@ function HomeContent() {
                   commuteTimes: data.commuteTimes,
                 };
                 // Save merged data to DB
-                saveProperty(propertyId, propertyUrl, {
-                  property: merged,
-                  schools: schoolsData,
-                  aiAnalysis: aiAnalysis,
-                  aiModel: aiModel,
-                  commuteTimes: commuteTimesRef.current,
-                }).then(() => {
-                  getSavedProperties().then(setSavedProperties);
+                getProperty(propertyId).then(existingSaved => {
+                  saveProperty(propertyId, propertyUrl, {
+                    property: merged,
+                    schools: existingSaved?.data.schools || schoolsData,
+                    aiAnalysis: existingSaved?.data.aiAnalysis || aiAnalysis,
+                    aiModel: existingSaved?.data.aiModel || aiModel,
+                    commuteTimes: existingSaved?.data.commuteTimes || commuteTimesRef.current,
+                  }).then(() => {
+                    getSavedProperties().then(setSavedProperties);
+                  });
                 });
                 return { ...prev, property: merged };
               });
@@ -665,14 +671,16 @@ function HomeContent() {
         if (data.logs) mergeLogs(data.logs);
         if (data.success) {
           // 1. Save AI analysis results for this property
-          saveProperty(propertyId, propertyUrl, {
-            property: initialProperty,
-            schools: initialSchools,
-            aiAnalysis: data.analysis,
-            aiModel: data.model || null,
-            commuteTimes: commuteTimesRef.current,
-          }).then(() => {
-            getSavedProperties().then(setSavedProperties);
+          getProperty(propertyId).then(existingSaved => {
+            saveProperty(propertyId, propertyUrl, {
+              property: existingSaved?.data.property || initialProperty,
+              schools: existingSaved?.data.schools || initialSchools,
+              aiAnalysis: data.analysis,
+              aiModel: data.model || null,
+              commuteTimes: existingSaved?.data.commuteTimes || commuteTimesRef.current,
+            }).then(() => {
+              getSavedProperties().then(setSavedProperties);
+            });
           });
 
           // 2. Update UI state ONLY if active

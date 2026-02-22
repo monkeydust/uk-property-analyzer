@@ -159,6 +159,8 @@ function HomeContent() {
   const bustCacheRef = useRef(false);
   // Track whether AI cache should be busted (set during refresh, consumed by AI effect)
   const bustAiCacheRef = useRef(false);
+  // Track which property ID we've already fired the AI call for (prevent duplicates)
+  const aiFiredForPropertyRef = useRef<string | null>(null);
 
   const handlePropertyClick = (property: SavedProperty) => {
     setSelectedProperty(property);
@@ -167,6 +169,12 @@ function HomeContent() {
     commuteTimesRef.current = property.data.commuteTimes || [];
     // Mark as loaded from save so the useEffect skips re-fetching
     loadedFromSaveRef.current = true;
+    // If saved property already has AI analysis, mark AI as already fired
+    if (property.data.aiAnalysis) {
+      aiFiredForPropertyRef.current = property.id;
+    } else {
+      aiFiredForPropertyRef.current = null;
+    }
     setResult({
       property: {
         ...property.data.property,
@@ -214,6 +222,7 @@ function HomeContent() {
     setAiAnalysis(null);
     setAiError(null);
     setError(null);
+    aiFiredForPropertyRef.current = null;
   };
 
   const handleBackToDashboard = async () => {
@@ -226,6 +235,7 @@ function HomeContent() {
     setAiError(null);
     setError(null);
     setUrl('');
+    aiFiredForPropertyRef.current = null;
 
     // Refresh the list when going back to dashboard
     const properties = await getSavedProperties();
@@ -636,6 +646,13 @@ function HomeContent() {
     if (!result || schoolsLoading) return;
     if (!schoolsData && !schoolsError) return;
 
+    const propertyId = result.property.id;
+
+    // Don't re-fire AI if we already called for this property (unless user hit Refresh)
+    if (aiFiredForPropertyRef.current === propertyId && !bustAiCacheRef.current) {
+      return;
+    }
+
     const combinedJson = {
       ...result.property,
       ...(schoolsData ? {
@@ -647,10 +664,12 @@ function HomeContent() {
       } : {}),
     };
 
-    const propertyId = result.property.id;
     const propertyUrl = result.property.sourceUrl;
     const initialProperty = result.property;
     const initialSchools = schoolsData;
+
+    // Mark as fired for this property
+    aiFiredForPropertyRef.current = propertyId;
 
     // Claude Opus report
     setAiLoading(true);

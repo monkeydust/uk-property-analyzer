@@ -168,61 +168,56 @@ export function MarketInsightsCard({ marketData, listingPrice }: MarketInsightsC
 
         {/* Column 2: Ownership Costs */}
         <div className="space-y-4">
-          <div className="flex items-start gap-3">
-            <Building className="w-5 h-5 text-slate-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Council Tax Band</p>
-              <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                {data?.ownership.councilTaxBand || 'N/A'}
-              </p>
-            </div>
+          <div className="flex items-center gap-2 mb-2">
+            <Building className="w-5 h-5 text-slate-400" />
+            <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Property Details</h4>
+          </div>
+
+          <div className="flex justify-between items-baseline">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Council Tax Band</p>
+            <p className="text-base font-bold text-slate-900 dark:text-slate-100">
+              {data?.ownership.councilTaxBand || 'N/A'}
+            </p>
           </div>
 
           {data?.ownership.tenure && (
-            <div className="flex items-start gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <div className="w-5 h-5 flex-shrink-0" /> {/* Spacer */}
-              <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Tenure</p>
-                <p className="text-lg font-medium text-slate-900 dark:text-slate-100">
-                  {data.ownership.tenure}
-                </p>
-              </div>
+            <div className="flex justify-between items-baseline pt-3 border-t border-slate-100 dark:border-slate-800">
+              <p className="text-sm text-slate-500 dark:text-slate-400">Tenure</p>
+              <p className="text-base font-medium text-slate-900 dark:text-slate-100">
+                {data.ownership.tenure}
+              </p>
             </div>
           )}
 
           {data?.ownership.isConservationArea && (
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                <AlertTriangle className="w-3 h-3" />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300 border border-amber-200/50 dark:border-amber-800/50">
+                <AlertTriangle className="w-3.5 h-3.5" />
                 Conservation Area
               </span>
-              <p className="text-xs text-slate-500 mt-1">
-                Restrictions may apply to alterations
-              </p>
             </div>
           )}
         </div>
 
         {/* Column 3: Risks & Safety */}
         <div className="space-y-4">
-          <div className="flex items-start gap-3">
-            <ShieldAlert className="w-5 h-5 text-slate-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Crime Rating</p>
-              <p className={`text-xl font-bold ${getCrimeColor(data?.risks.crimeRating)}`}>
-                {data?.risks.crimeRating || 'N/A'}
-              </p>
-            </div>
+          <div className="flex items-center gap-2 mb-2">
+            <ShieldAlert className="w-5 h-5 text-slate-400" />
+            <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Local Info</h4>
           </div>
 
-          <div className="flex items-start gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-            <div className="w-5 h-5 flex-shrink-0" /> {/* Spacer */}
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mb-1">Flood Risk</p>
-              <p className={`text-xl font-bold ${getFloodColor(data?.risks.floodRiskLevel)}`}>
-                {data?.risks.floodRisk || 'N/A'}
-              </p>
-            </div>
+          <div className="flex justify-between items-baseline">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Crime</p>
+            <p className={`text-base font-bold ${getCrimeColor(data?.risks.crimeRating)}`}>
+              {data?.risks.crimeRating || 'N/A'}
+            </p>
+          </div>
+
+          <div className="flex justify-between items-baseline pt-3 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Flood Risk</p>
+            <p className={`text-base font-bold ${getFloodColor(data?.risks.floodRiskLevel)}`}>
+              {data?.risks.floodRisk || 'N/A'}
+            </p>
           </div>
         </div>
       </div>

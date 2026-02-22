@@ -382,7 +382,7 @@ function HomeContent() {
                     schools: existingSaved?.data.schools || schoolsData,
                     aiAnalysis: existingSaved?.data.aiAnalysis || aiAnalysis,
                     aiModel: existingSaved?.data.aiModel || aiModel,
-                    commuteTimes: existingSaved?.data.commuteTimes || commuteTimesRef.current,
+                    commuteTimes: (commuteTimesRef.current ?? []).length > 0 ? commuteTimesRef.current! : existingSaved?.data.commuteTimes || [],
                   }).then(() => {
                     getSavedProperties().then(setSavedProperties);
                   });
@@ -400,6 +400,43 @@ function HomeContent() {
       } else {
         setMarketDataLoading(false);
       }
+
+      // Recover missing commute data for saved properties (may have been lost to race condition)
+      const coords = result.property.coordinates;
+      const hasCommute = result.property.commuteTimes && result.property.commuteTimes.length > 0;
+      if (coords && !hasCommute) {
+        setCommuteLoading(true);
+        fetch(`/api/commute?lat=${coords.latitude}&lng=${coords.longitude}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && activePropertyIdRef.current === result.property.id) {
+              commuteTimesRef.current = data.commuteTimes || [];
+              setResult(prev => {
+                if (!prev || prev.property?.id !== result.property.id) return prev;
+                const merged = { ...prev.property, commuteTimes: data.commuteTimes };
+                getProperty(result.property.id).then(existingSaved => {
+                  saveProperty(result.property.id, result.property.sourceUrl, {
+                    property: merged,
+                    schools: existingSaved?.data.schools || schoolsData,
+                    aiAnalysis: existingSaved?.data.aiAnalysis || aiAnalysis,
+                    aiModel: existingSaved?.data.aiModel || aiModel,
+                    commuteTimes: data.commuteTimes,
+                  }).then(() => {
+                    getSavedProperties().then(setSavedProperties);
+                  });
+                });
+                return { ...prev, property: merged };
+              });
+            }
+          })
+          .catch(() => { })
+          .finally(() => {
+            if (activePropertyIdRef.current === result.property.id) {
+              setCommuteLoading(false);
+            }
+          });
+      }
+
       return;
     }
 
@@ -465,7 +502,7 @@ function HomeContent() {
               schools: data,
               aiAnalysis: existingSaved?.data.aiAnalysis || aiAnalysis,
               aiModel: existingSaved?.data.aiModel || aiModel,
-              commuteTimes: existingSaved?.data.commuteTimes || commuteTimesRef.current,
+              commuteTimes: (commuteTimesRef.current ?? []).length > 0 ? commuteTimesRef.current! : existingSaved?.data.commuteTimes || [],
             }).then(() => {
               getSavedProperties().then(setSavedProperties);
             });
@@ -525,7 +562,7 @@ function HomeContent() {
                   schools: existingSaved?.data.schools || schoolsData,
                   aiAnalysis: existingSaved?.data.aiAnalysis || aiAnalysis,
                   aiModel: existingSaved?.data.aiModel || aiModel,
-                  commuteTimes: existingSaved?.data.commuteTimes || commuteTimesRef.current,
+                  commuteTimes: (commuteTimesRef.current ?? []).length > 0 ? commuteTimesRef.current! : existingSaved?.data.commuteTimes || [],
                 }).then(() => {
                   getSavedProperties().then(setSavedProperties);
                 });
@@ -580,7 +617,7 @@ function HomeContent() {
                     schools: existingSaved?.data.schools || schoolsData,
                     aiAnalysis: existingSaved?.data.aiAnalysis || aiAnalysis,
                     aiModel: existingSaved?.data.aiModel || aiModel,
-                    commuteTimes: existingSaved?.data.commuteTimes || commuteTimesRef.current,
+                    commuteTimes: (commuteTimesRef.current ?? []).length > 0 ? commuteTimesRef.current! : existingSaved?.data.commuteTimes || [],
                   }).then(() => {
                     getSavedProperties().then(setSavedProperties);
                   });
@@ -622,7 +659,7 @@ function HomeContent() {
                     schools: existingSaved?.data.schools || schoolsData,
                     aiAnalysis: existingSaved?.data.aiAnalysis || aiAnalysis,
                     aiModel: existingSaved?.data.aiModel || aiModel,
-                    commuteTimes: existingSaved?.data.commuteTimes || commuteTimesRef.current,
+                    commuteTimes: (commuteTimesRef.current ?? []).length > 0 ? commuteTimesRef.current! : existingSaved?.data.commuteTimes || [],
                   }).then(() => {
                     getSavedProperties().then(setSavedProperties);
                   });
@@ -696,7 +733,7 @@ function HomeContent() {
               schools: existingSaved?.data.schools || initialSchools,
               aiAnalysis: data.analysis,
               aiModel: data.model || null,
-              commuteTimes: existingSaved?.data.commuteTimes || commuteTimesRef.current,
+              commuteTimes: (commuteTimesRef.current ?? []).length > 0 ? commuteTimesRef.current! : existingSaved?.data.commuteTimes || [],
             }).then(() => {
               getSavedProperties().then(setSavedProperties);
             });

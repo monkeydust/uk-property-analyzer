@@ -1643,10 +1643,17 @@ function HomeContent() {
                             The plot size in acres is obtained from the HM Land Registry via the PropertyData API. The process works by matching the property address to a UPRN (Unique Property Reference Number), then looking up the associated Land Registry title number to retrieve the registered plot boundary and size.
                           </p>
                           <p className="text-slate-600 dark:text-slate-400 mt-1">
-                            <span className="font-medium text-slate-700 dark:text-slate-300">What does <span className="text-amber-500">*</span> mean?</span> When the exact property address cannot be matched in the UPRN database (common with new-build developments where addresses are not yet fully registered), the system falls back to using a nearby property on the same street. The plot size shown with an asterisk (<span className="text-amber-500">*</span>) is therefore an approximation based on a neighbouring plot, not the exact property. This is typically a reasonable estimate on estates where plots are similar in size.
+                            <span className="font-medium text-slate-700 dark:text-slate-300">What does <span className="text-amber-500">*</span> mean?</span> When the exact property address cannot be matched in the UPRN database, the system falls back to using a nearby property on the same street based on location coordinates. The plot size shown with an asterisk (<span className="text-amber-500">*</span>) is therefore an approximation based on a neighbouring plot, not the exact property.
                           </p>
                           <p className="text-slate-600 dark:text-slate-400 mt-1">
-                            Plot size may show as N/A when the property has no registered Land Registry title or when address matching fails entirely.
+                            Plot size will show as N/A when the property has no registered Land Registry title or when address matching fails.
+                          </p>
+                        </div>
+
+                        <div className="p-3 bg-white dark:bg-slate-900 rounded-lg">
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">Market Insights</p>
+                          <p className="text-slate-600 dark:text-slate-400 mt-1">
+                            The Market Insights card shows valuation, growth, council tax, crime, flood risk, and conservation area data sourced from the PropertyData API. Data sources include HM Land Registry, Police.uk, and the Environment Agency. Market data is cached for 7 days; use &quot;Refresh Data&quot; to force a fresh lookup.
                           </p>
                         </div>
 

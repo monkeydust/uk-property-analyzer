@@ -242,12 +242,12 @@ export async function getPlotSizeAcres(input: {
         // Search the raw response directly — TypeScript types may strip unknown fields
         const exactMatch = (street && numToken)
           ? rawRows.filter((r) => {
-              const parts = r.addressParts as Record<string, unknown> | undefined;
-              if (!parts) return false;
-              const primary = String(parts.primary || '').trim();
-              const s = String(parts.street || '').toUpperCase();
-              return primary === numToken && s === street;
-            })
+            const parts = r.addressParts as Record<string, unknown> | undefined;
+            if (!parts) return false;
+            const primary = String(parts.primary || '').trim();
+            const s = String(parts.street || '').toUpperCase();
+            return primary === numToken && s === street;
+          })
           : [];
 
         // If we have an exact door+street match, only try that one UPRN.
@@ -274,10 +274,10 @@ export async function getPlotSizeAcres(input: {
         // Priority 2: same street (different number — fallback)
         const sameStreet = street
           ? rawRows.filter((r) => {
-              const parts = r.addressParts as Record<string, unknown> | undefined;
-              if (!parts) return false;
-              return String(parts.street || '').toUpperCase() === street;
-            })
+            const parts = r.addressParts as Record<string, unknown> | undefined;
+            if (!parts) return false;
+            return String(parts.street || '').toUpperCase() === street;
+          })
           : [];
 
         // No exact match — try up to 3 same-street candidates
@@ -302,83 +302,6 @@ export async function getPlotSizeAcres(input: {
       }
     } catch (e) {
       console.warn('[plot-size] uprns-location failed:', e instanceof Error ? e.message : String(e));
-    }
-  }
-
-  // 3) Fallback: uprns by strict postcode — prefer same street, then any with title
-  if (input.postcode) {
-    try {
-      const postcode = normalizePostcode(input.postcode);
-      const uprns = await propertyDataGet<UprnsResponse>('uprns', {
-        postcode,
-        strict: true,
-        results: 100,
-      }, { retriesOnThrottle: 2 });
-
-      if (uprns.status === 'success' && Array.isArray(uprns.data) && uprns.data.length > 0) {
-        const street = (input.streetName || '').trim().toUpperCase();
-        const door = (input.doorNumber || '').trim();
-        const numToken = (door.match(/^\d+/)?.[0]) || '';
-
-        // 3a) Exact match: same street + same number
-        const exactMatch = uprns.data.filter((r) => {
-          const a = r.address ? String(r.address) : '';
-          if (!a) return false;
-          if (street) return addrIncludesNumberAndStreet(a, numToken, street);
-          if (numToken) return new RegExp(`\\b${numToken}\\b`).test(a);
-          return false;
-        });
-
-        // 3b) Same-street match (different number — fallback for new-builds etc.)
-        const sameStreetMatch = street
-          ? uprns.data.filter((r) => {
-              const s = r.addressParts?.street || '';
-              return s.toUpperCase() === street;
-            })
-          : [];
-
-        // If exact match found, only try that one UPRN — don't iterate
-        if (exactMatch.length > 0) {
-          const row = exactMatch[0];
-          const uprn = row.uprn !== undefined && row.uprn !== null ? String(row.uprn) : null;
-          if (uprn) {
-            const titleNumber = await uprnToTitle(uprn);
-            if (titleNumber) {
-              const plotSizeAcres = await titleToPlotSize(titleNumber);
-              const result: PlotSizeResult = {
-                plotSizeAcres,
-                uprn,
-                titleNumber,
-                matchedAddress: row.address ? String(row.address) : null,
-                method: 'address-match-uprn',
-              };
-              plotSizeCache.set(cacheKey, result, TTL.PLOT_SIZE);
-              return result;
-            }
-          }
-        }
-
-        // No exact match — try up to 3 same-street (or any) candidates
-        const fallbackRows = (sameStreetMatch.length > 0 ? sameStreetMatch : uprns.data).slice(0, 3);
-        for (const row of fallbackRows) {
-          const uprn = row.uprn !== undefined && row.uprn !== null ? String(row.uprn) : null;
-          if (!uprn) continue;
-          const titleNumber = await uprnToTitle(uprn);
-          if (!titleNumber) continue;
-          const plotSizeAcres = await titleToPlotSize(titleNumber);
-          const result: PlotSizeResult = {
-            plotSizeAcres,
-            uprn,
-            titleNumber,
-            matchedAddress: row.address ? String(row.address) : null,
-            method: 'uprns-postcode',
-          };
-          plotSizeCache.set(cacheKey, result, TTL.PLOT_SIZE);
-          return result;
-        }
-      }
-    } catch {
-      // ignore
     }
   }
 

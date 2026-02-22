@@ -296,7 +296,11 @@ export async function getMarketData(
           baseResult.data!.valuation.confidence =
             `£${v.result.estimate_lower.toLocaleString()} – £${v.result.estimate_upper.toLocaleString()}`;
         }
+      } else {
+        console.warn(`[market-data] Valuation API returned no estimate for ${postcode}: status=${v.status}, code=${v.code}, message=${v.message}, result=${JSON.stringify(v.result)}`);
       }
+    } else {
+      console.warn(`[market-data] Valuation API call rejected for ${postcode}:`, (valuationResult as PromiseRejectedResult).reason);
     }
 
     // ── Prices (comparables) ────────────────────────────────────

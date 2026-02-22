@@ -184,23 +184,19 @@ export function MarketInsightsCard({ marketData, listingPrice }: MarketInsightsC
             </p>
           </div>
 
-          {data?.ownership.tenure && (
-            <div className="flex justify-between items-baseline pt-2 border-t border-slate-100 dark:border-slate-800">
-              <p className="text-sm text-slate-500 dark:text-slate-400">Tenure</p>
-              <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                {data.ownership.tenure}
-              </p>
-            </div>
-          )}
-
-          {data?.ownership.isConservationArea && (
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300 border border-amber-200/50 dark:border-amber-800/50">
+          <div className="flex justify-between items-baseline pt-2 border-t border-slate-100 dark:border-slate-800">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Conservation Area</p>
+            {data?.ownership.isConservationArea ? (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
                 <AlertTriangle className="w-3 h-3" />
-                Conservation Area
+                Yes
               </span>
-            </div>
-          )}
+            ) : (
+              <span className="text-base font-semibold text-green-600 dark:text-green-400">
+                No
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Column 3: Risks & Safety */}

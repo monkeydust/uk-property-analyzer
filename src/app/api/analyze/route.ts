@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { scrapeRightmoveProperty, isValidRightmoveUrl } from '@/lib/scraper/rightmove';
 import { AnalysisResponse } from '@/lib/types/property';
 import { reverseGeocode, getCoordinatesFromPostcode } from '@/lib/utils/google-maps';
-import { propertyCache, schoolsCache, aiCache, TTL } from '@/lib/cache';
+import { propertyCache, schoolsCache, aiCache, plotSizeCache, TTL } from '@/lib/cache';
 import logger from '@/lib/logger';
 import { getPlotSizeAcres } from '@/lib/propertydata/plot-size';
 
@@ -82,6 +82,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       propertyCache.delete(cacheKey);
       aiCache.deleteMatching(cacheKey);
       schoolsCache.deleteMatching(cacheKey);
+      plotSizeCache.deleteMatching('plotSize::');  // clear all plot size entries
     }
 
     const cached = propertyCache.get(cacheKey);
@@ -154,6 +155,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
           streetName: property.address.streetName,
           doorNumber: property.address.doorNumber,
           coordinates: property.coordinates,
+          bustCache: !!bustCache,
         });
 
         property.plotSizeAcres = plot.plotSizeAcres;

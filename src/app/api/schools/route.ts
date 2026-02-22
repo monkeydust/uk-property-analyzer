@@ -103,8 +103,12 @@ export async function GET(request: NextRequest): Promise<NextResponse<AttendedSc
       return NextResponse.json({ ...cached, logs: logger.getAll() });
     }
 
-    logger.info(`Cache MISS — fetching attended schools for "${address}"`, 'schools');
-    const result = await getAttendedSchools(address.trim());
+    logger.info(`Cache MISS — fetching attended schools for "${address}"${!isNaN(lat) ? ` (coords: ${lat}, ${lng})` : ''}`, 'schools');
+    const result = await getAttendedSchools(
+      address.trim(),
+      !isNaN(lat) ? lat : undefined,
+      !isNaN(lng) ? lng : undefined
+    );
 
     if (!result.success) {
       return NextResponse.json(result, { status: 422 });
@@ -167,8 +171,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<AttendedS
       return NextResponse.json({ ...cached, logs: logger.getAll() });
     }
 
-    logger.info(`Cache MISS (POST) — fetching attended schools for "${address}"`, 'schools');
-    const result = await getAttendedSchools(address.trim());
+    logger.info(`Cache MISS (POST) — fetching attended schools for "${address}"${!isNaN(parsedLat) ? ` (coords: ${parsedLat}, ${parsedLng})` : ''}`, 'schools');
+    const result = await getAttendedSchools(
+      address.trim(),
+      !isNaN(parsedLat) ? parsedLat : undefined,
+      !isNaN(parsedLng) ? parsedLng : undefined
+    );
 
     if (!result.success) {
       return NextResponse.json(result, { status: 422 });

@@ -323,7 +323,7 @@ function parseAttendedSchoolsResponse(responseBody: string): {
  * search flow give the correct LSOA. External geocoding may land in a
  * slightly different LSOA (e.g. Barnet 005B vs 005C).
  */
-export async function getAttendedSchools(address: string): Promise<AttendedSchoolsResult> {
+export async function getAttendedSchools(address: string, knownLat?: number, knownLng?: number): Promise<AttendedSchoolsResult> {
   await ensureDebugDir();
   _scrapeStart = Date.now();
   log(`Starting scrape for: "${address}"`);
@@ -415,194 +415,206 @@ export async function getAttendedSchools(address: string): Promise<AttendedSchoo
     await dismissModals(page, iframe);
     await page.waitForTimeout(2000);
 
-    // Step 6: Open the sidebar
-    log('Step 6: Opening sidebar...');
-    await iframe.evaluate(() => {
-      const sidebar = document.querySelector('.ui.sidebar') as HTMLElement | null;
-      if (sidebar) {
-        sidebar.classList.add('visible');
-        sidebar.style.visibility = 'visible';
-        sidebar.style.display = 'block';
-        sidebar.style.transform = 'translate3d(0, 0, 0)';
-      }
-      if (typeof (window as any).$ !== 'undefined' && (window as any).$.fn?.sidebar) {
-        try { (window as any).$('.ui.sidebar').sidebar('show'); } catch {}
-      }
-    });
-    await page.waitForTimeout(1000);
+    let lat: number;
+    let lng: number;
 
-    // Step 7: Check "Place Home Marker at Location" checkbox
-    log('Step 7: Enabling "place home marker" checkbox...');
-    await iframe.evaluate(() => {
-      const cb = document.querySelector('input[name="addpintomapaftersearch"]') as HTMLInputElement | null;
-      if (cb && !cb.checked) {
-        cb.checked = true;
-        cb.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    });
-    const checkbox = await iframe.$('input[name="addpintomapaftersearch"]');
-    if (checkbox) {
-      const isChecked = await checkbox.isChecked();
-      if (!isChecked) await checkbox.check();
-      log('Checkbox checked via Playwright');
+    // If we have known accurate coordinates (from Postcodes.io / Google),
+    // skip the Nominatim geocode entirely — it can land in the wrong LSOA.
+    if (knownLat && knownLng) {
+      lat = knownLat;
+      lng = knownLng;
+      log(`Using known coordinates (skipping Nominatim): ${lat}, ${lng}`);
     } else {
-      log('Checkbox not found in DOM — relying on JS dispatch only');
-    }
-
-    // Step 8a: Capture pre-search map center
-    const preSearchCoords = await iframe.evaluate(() => {
-      if (typeof (window as any).map !== 'undefined' && (window as any).map.getCenter) {
-        const c = (window as any).map.getCenter();
-        return { lat: c.lat as number, lng: c.lng as number };
-      }
-      return { lat: 0, lng: 0 };
-    });
-    log(`Step 8: Pre-search map center: ${preSearchCoords.lat}, ${preSearchCoords.lng}`);
-
-    // Step 8b: Intercept Nominatim geocode response
-    let nominatimLat: number | null = null;
-    let nominatimLng: number | null = null;
-    let nominatimResolved = false;
-    context.on('response', async (resp) => {
-      const url = resp.url();
-      if (url.includes('nominatim')) {
-        try {
-          const body = await resp.text();
-          log(`Nominatim response received (${body.length} bytes) from: ${url}`);
-          const jsonMatch = body.match(/\[[\s\S]*\]/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].lat && parsed[0].lon) {
-              nominatimLat = parseFloat(parsed[0].lat);
-              nominatimLng = parseFloat(parsed[0].lon);
-              nominatimResolved = true;
-              log(`Nominatim geocoded: ${nominatimLat}, ${nominatimLng} (display_name: ${parsed[0].display_name || 'n/a'})`);
-            } else {
-              log(`Nominatim returned ${parsed.length} results but none had lat/lon`);
-            }
-          } else {
-            log('Nominatim response not JSONP — raw preview: ' + body.slice(0, 200));
-          }
-        } catch (e) {
-          logErr('Failed to parse Nominatim response', e);
-        }
-      }
-    });
-
-    // Step 9: Type address and trigger search
-    log(`Step 9: Typing "${address}" into search input...`);
-    const searchInput = await iframe.$('#mapsearch');
-    if (searchInput) {
-      await searchInput.click();
-      await page.waitForTimeout(300);
-      await searchInput.evaluate((el: HTMLInputElement) => { el.value = ''; });
-      await searchInput.type(address, { delay: 30 });
-      await page.waitForTimeout(500);
-      await searchInput.press('Enter');
-      log('Search input typed and Enter pressed');
-    } else {
-      log('Search input #mapsearch not found — using JS fallback');
-      await iframe.evaluate((addr: string) => {
-        const el = document.getElementById('mapsearch') as HTMLInputElement | null;
-        if (el) {
-          el.value = addr;
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-      }, address);
+      // Fall back to Locrating's Nominatim search flow
+      // Step 6: Open the sidebar
+      log('Step 6: Opening sidebar...');
       await iframe.evaluate(() => {
-        const btn = document.getElementById('innerSearchButton');
-        if (btn) btn.click();
+        const sidebar = document.querySelector('.ui.sidebar') as HTMLElement | null;
+        if (sidebar) {
+          sidebar.classList.add('visible');
+          sidebar.style.visibility = 'visible';
+          sidebar.style.display = 'block';
+          sidebar.style.transform = 'translate3d(0, 0, 0)';
+        }
+        if (typeof (window as any).$ !== 'undefined' && (window as any).$.fn?.sidebar) {
+          try { (window as any).$('.ui.sidebar').sidebar('show'); } catch {}
+        }
       });
-      log('JS fallback: value set and innerSearchButton clicked');
-    }
-    log('Step 10: Waiting for geocode to resolve...');
-
-    // Step 10: Wait for coordinates
-    let finalLat = 0;
-    let finalLng = 0;
-    let coordsFound = false;
-
-    for (let i = 0; i < 20; i++) {
       await page.waitForTimeout(1000);
 
-      if (nominatimResolved && nominatimLat && nominatimLng) {
-        finalLat = nominatimLat;
-        finalLng = nominatimLng;
-        coordsFound = true;
-        log(`Coords from Nominatim after ${i + 1}s: ${finalLat}, ${finalLng}`);
-        await page.waitForTimeout(3000);
-        break;
+      // Step 7: Check "Place Home Marker at Location" checkbox
+      log('Step 7: Enabling "place home marker" checkbox...');
+      await iframe.evaluate(() => {
+        const cb = document.querySelector('input[name="addpintomapaftersearch"]') as HTMLInputElement | null;
+        if (cb && !cb.checked) {
+          cb.checked = true;
+          cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+      const checkbox = await iframe.$('input[name="addpintomapaftersearch"]');
+      if (checkbox) {
+        const isChecked = await checkbox.isChecked();
+        if (!isChecked) await checkbox.check();
+        log('Checkbox checked via Playwright');
+      } else {
+        log('Checkbox not found in DOM — relying on JS dispatch only');
       }
 
-      const currentCoords = await iframe.evaluate(() => {
-        const result: Record<string, unknown> = {};
-        if (typeof (window as any).homeMarker !== 'undefined' && (window as any).homeMarker?.getLatLng) {
-          const ll = (window as any).homeMarker.getLatLng();
-          result.homeMarkerLat = ll.lat;
-          result.homeMarkerLng = ll.lng;
-        }
+      // Step 8a: Capture pre-search map center
+      const preSearchCoords = await iframe.evaluate(() => {
         if (typeof (window as any).map !== 'undefined' && (window as any).map.getCenter) {
           const c = (window as any).map.getCenter();
-          result.mapLat = c.lat;
-          result.mapLng = c.lng;
+          return { lat: c.lat as number, lng: c.lng as number };
         }
-        return result;
+        return { lat: 0, lng: 0 };
+      });
+      log(`Step 8: Pre-search map center: ${preSearchCoords.lat}, ${preSearchCoords.lng}`);
+
+      // Step 8b: Intercept Nominatim geocode response
+      let nominatimLat: number | null = null;
+      let nominatimLng: number | null = null;
+      let nominatimResolved = false;
+      context.on('response', async (resp) => {
+        const url = resp.url();
+        if (url.includes('nominatim')) {
+          try {
+            const body = await resp.text();
+            log(`Nominatim response received (${body.length} bytes) from: ${url}`);
+            const jsonMatch = body.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]);
+              if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].lat && parsed[0].lon) {
+                nominatimLat = parseFloat(parsed[0].lat);
+                nominatimLng = parseFloat(parsed[0].lon);
+                nominatimResolved = true;
+                log(`Nominatim geocoded: ${nominatimLat}, ${nominatimLng} (display_name: ${parsed[0].display_name || 'n/a'})`);
+              } else {
+                log(`Nominatim returned ${parsed.length} results but none had lat/lon`);
+              }
+            } else {
+              log('Nominatim response not JSONP — raw preview: ' + body.slice(0, 200));
+            }
+          } catch (e) {
+            logErr('Failed to parse Nominatim response', e);
+          }
+        }
       });
 
-      if (currentCoords.homeMarkerLat && currentCoords.homeMarkerLng) {
-        finalLat = currentCoords.homeMarkerLat as number;
-        finalLng = currentCoords.homeMarkerLng as number;
-        coordsFound = true;
-        log(`Coords from homeMarker after ${i + 1}s: ${finalLat}, ${finalLng}`);
-        await page.waitForTimeout(2000);
-        break;
+      // Step 9: Type address and trigger search
+      log(`Step 9: Typing "${address}" into search input...`);
+      const searchInput = await iframe.$('#mapsearch');
+      if (searchInput) {
+        await searchInput.click();
+        await page.waitForTimeout(300);
+        await searchInput.evaluate((el: HTMLInputElement) => { el.value = ''; });
+        await searchInput.type(address, { delay: 30 });
+        await page.waitForTimeout(500);
+        await searchInput.press('Enter');
+        log('Search input typed and Enter pressed');
+      } else {
+        log('Search input #mapsearch not found — using JS fallback');
+        await iframe.evaluate((addr: string) => {
+          const el = document.getElementById('mapsearch') as HTMLInputElement | null;
+          if (el) {
+            el.value = addr;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }, address);
+        await iframe.evaluate(() => {
+          const btn = document.getElementById('innerSearchButton');
+          if (btn) btn.click();
+        });
+        log('JS fallback: value set and innerSearchButton clicked');
       }
+      log('Step 10: Waiting for geocode to resolve...');
 
-      if (currentCoords.mapLat && currentCoords.mapLng) {
-        const mapLat = currentCoords.mapLat as number;
-        const mapLng = currentCoords.mapLng as number;
-        const moved = Math.abs(mapLat - preSearchCoords.lat) > 0.0001 ||
-                      Math.abs(mapLng - preSearchCoords.lng) > 0.0001;
-        if (moved) {
-          finalLat = mapLat;
-          finalLng = mapLng;
+      // Step 10: Wait for coordinates
+      let finalLat = 0;
+      let finalLng = 0;
+      let coordsFound = false;
+
+      for (let i = 0; i < 20; i++) {
+        await page.waitForTimeout(1000);
+
+        if (nominatimResolved && nominatimLat && nominatimLng) {
+          finalLat = nominatimLat;
+          finalLng = nominatimLng;
           coordsFound = true;
-          log(`Coords from map center (moved) after ${i + 1}s: ${finalLat}, ${finalLng}`);
+          log(`Coords from Nominatim after ${i + 1}s: ${finalLat}, ${finalLng}`);
+          await page.waitForTimeout(3000);
+          break;
+        }
+
+        const currentCoords = await iframe.evaluate(() => {
+          const result: Record<string, unknown> = {};
+          if (typeof (window as any).homeMarker !== 'undefined' && (window as any).homeMarker?.getLatLng) {
+            const ll = (window as any).homeMarker.getLatLng();
+            result.homeMarkerLat = ll.lat;
+            result.homeMarkerLng = ll.lng;
+          }
+          if (typeof (window as any).map !== 'undefined' && (window as any).map.getCenter) {
+            const c = (window as any).map.getCenter();
+            result.mapLat = c.lat;
+            result.mapLng = c.lng;
+          }
+          return result;
+        });
+
+        if (currentCoords.homeMarkerLat && currentCoords.homeMarkerLng) {
+          finalLat = currentCoords.homeMarkerLat as number;
+          finalLng = currentCoords.homeMarkerLng as number;
+          coordsFound = true;
+          log(`Coords from homeMarker after ${i + 1}s: ${finalLat}, ${finalLng}`);
           await page.waitForTimeout(2000);
           break;
         }
-        if (i >= 10 && mapLat !== 0) {
-          finalLat = mapLat;
-          finalLng = mapLng;
-          coordsFound = true;
-          log(`Coords from map center (static, accepted after ${i + 1}s): ${finalLat}, ${finalLng}`);
-          await page.waitForTimeout(1000);
-          break;
+
+        if (currentCoords.mapLat && currentCoords.mapLng) {
+          const mapLat = currentCoords.mapLat as number;
+          const mapLng = currentCoords.mapLng as number;
+          const moved = Math.abs(mapLat - preSearchCoords.lat) > 0.0001 ||
+                         Math.abs(mapLng - preSearchCoords.lng) > 0.0001;
+          if (moved) {
+            finalLat = mapLat;
+            finalLng = mapLng;
+            coordsFound = true;
+            log(`Coords from map center (moved) after ${i + 1}s: ${finalLat}, ${finalLng}`);
+            await page.waitForTimeout(2000);
+            break;
+          }
+          if (i >= 10 && mapLat !== 0) {
+            finalLat = mapLat;
+            finalLng = mapLng;
+            coordsFound = true;
+            log(`Coords from map center (static, accepted after ${i + 1}s): ${finalLat}, ${finalLng}`);
+            await page.waitForTimeout(1000);
+            break;
+          }
+        }
+
+        if (i % 5 === 4) {
+          log(`Still waiting for geocode... (${i + 1}s elapsed, nominatim resolved=${nominatimResolved})`);
         }
       }
 
-      if (i % 5 === 4) {
-        log(`Still waiting for geocode... (${i + 1}s elapsed, nominatim resolved=${nominatimResolved})`);
+      if (!coordsFound) {
+        logErr(`Geocode failed after 20s for "${address}". nominatim=${nominatimResolved}`);
+        await page.screenshot({ path: path.join(DEBUG_DIR, 'locrating-geocode-failed.png'), fullPage: true }).catch(() => {});
+        await saveCookies(context);
+        await browser.close();
+        return {
+          success: false,
+          areaName: null,
+          coordinates: null,
+          primarySchools: [],
+          secondarySchools: [],
+          error: `Locrating geocode failed for address "${address}". The address may not be recognised.`,
+        };
       }
-    }
 
-    if (!coordsFound) {
-      logErr(`Geocode failed after 20s for "${address}". nominatim=${nominatimResolved}`);
-      await page.screenshot({ path: path.join(DEBUG_DIR, 'locrating-geocode-failed.png'), fullPage: true }).catch(() => {});
-      await saveCookies(context);
-      await browser.close();
-      return {
-        success: false,
-        areaName: null,
-        coordinates: null,
-        primarySchools: [],
-        secondarySchools: [],
-        error: `Locrating geocode failed for address "${address}". The address may not be recognised.`,
-      };
+      lat = finalLat;
+      lng = finalLng;
     }
-
-    const lat = finalLat;
-    const lng = finalLng;
 
     // Step 11: Embed attended_schools.aspx iframe
     log(`Step 11: Embedding attended_schools.aspx at ${lat}, ${lng}...`);

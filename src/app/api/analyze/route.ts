@@ -139,41 +139,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
     // Stations and commute times are now fetched by separate endpoints
     // /api/stations and /api/commute - called in parallel by the frontend
 
-    // PropertyData enrichment: plot size (acres)
-    try {
-      const fullAddress = buildFullAddressForPropertyData({
-        doorNumber: property.address.doorNumber,
-        streetName: property.address.streetName,
-        displayAddress: property.address.displayAddress,
-        postcode: property.address.postcode,
-      });
-
-      if (fullAddress) {
-        const plot = await getPlotSizeAcres({
-          address: fullAddress,
-          postcode: property.address.postcode,
-          streetName: property.address.streetName,
-          doorNumber: property.address.doorNumber,
-          coordinates: property.coordinates,
-          bustCache: !!bustCache,
-        });
-
-        property.plotSizeAcres = plot.plotSizeAcres;
-        property.plotSizeUprn = plot.uprn;
-        property.plotSizeTitleNumber = plot.titleNumber;
-        property.plotSizeMethod = plot.method;
-
-        if (plot.plotSizeAcres !== null) {
-          logger.info(`Plot size found: ${plot.plotSizeAcres} acres (method=${plot.method})`, 'analyze');
-        } else {
-          logger.info('Plot size not found (PropertyData)', 'analyze');
-        }
-      }
-    } catch (error) {
-      logger.warn(`PropertyData plot size lookup failed: ${String(error)}`, 'analyze');
-    }
-
-    // Market data is fetched separately by the frontend via /api/market-data
+    // Plot Size and Market Insights are fetched separately by the frontend via /api/market-data
     // This avoids throttling from too many PropertyData calls in one request
 
     const responseData = {

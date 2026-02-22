@@ -98,6 +98,10 @@ export interface MarketDataResult {
       councilTaxBand: string | null;
       tenure: string | null;
       isConservationArea: boolean;
+      plotSizeAcres?: number | null;
+      plotSizeMethod?: string | null;
+      plotSizeUprn?: string | null;
+      plotSizeTitleNumber?: string | null;
     };
     risks: {
       crimeRating: string | null;

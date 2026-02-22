@@ -134,13 +134,13 @@ function ZenReceipt({ property }: { property: Property }) {
           label="Square Footage"
           value={property.squareFootage ? `${property.squareFootage.toLocaleString()} sq ft` : 'N/A'}
         />
-        {typeof property.plotSizeAcres === 'number' && (
+        {typeof property.marketData?.data?.ownership?.plotSizeAcres === 'number' && (
           <ReceiptRow
             label="Total area"
             value={
               <span>
-                {property.plotSizeAcres.toFixed(2)} acres
-                {property.plotSizeMethod && property.plotSizeMethod !== 'address-match-uprn' && (
+                {property.marketData.data.ownership.plotSizeAcres.toFixed(2)} acres
+                {property.marketData.data.ownership.plotSizeMethod && property.marketData.data.ownership.plotSizeMethod !== 'address-match-uprn' && (
                   <span className="text-amber-500 ml-0.5" title="Approximate — based on a nearby property on the same street">*</span>
                 )}
               </span>
@@ -282,10 +282,10 @@ function ZenStacked({ property }: { property: Property }) {
         {property.squareFootage && (
           <StackedCell label="Square Footage" value={`${property.squareFootage.toLocaleString()} sq ft`} />
         )}
-        {typeof property.plotSizeAcres === 'number' && (
+        {typeof property.marketData?.data?.ownership?.plotSizeAcres === 'number' && (
           <StackedCell
             label="Total area"
-            value={`${property.plotSizeAcres.toFixed(2)} acres${property.plotSizeMethod && property.plotSizeMethod !== 'address-match-uprn' ? ' *' : ''}`}
+            value={`${property.marketData.data.ownership.plotSizeAcres.toFixed(2)} acres${property.marketData.data.ownership.plotSizeMethod && property.marketData.data.ownership.plotSizeMethod !== 'address-match-uprn' ? ' *' : ''}`}
           />
         )}
 
@@ -562,8 +562,8 @@ function ZenDense({ property }: { property: Property }) {
           <DenseRow label="Baths" value={property.bathrooms !== null ? String(property.bathrooms) : 'N/A'} />
           <DenseRow
             label="Total area"
-            value={typeof property.plotSizeAcres === 'number'
-              ? `${property.plotSizeAcres.toFixed(2)} acres${property.plotSizeMethod && property.plotSizeMethod !== 'address-match-uprn' ? ' *' : ''}`
+            value={typeof property.marketData?.data?.ownership?.plotSizeAcres === 'number'
+              ? `${property.marketData.data.ownership.plotSizeAcres.toFixed(2)} acres${property.marketData.data.ownership.plotSizeMethod && property.marketData.data.ownership.plotSizeMethod !== 'address-match-uprn' ? ' *' : ''}`
               : 'N/A'}
           />
           <DenseRow

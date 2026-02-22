@@ -1,6 +1,7 @@
 import { propertyDataGet, PropertyDataError } from '@/lib/propertydata/client';
 import { marketDataCache, TTL } from '@/lib/cache';
 import type { MarketDataResult } from '@/lib/types/property';
+import { getPlotSizeAcres } from '@/lib/propertydata/plot-size';
 
 // ── Actual PropertyData API response shapes ──────────────────────────
 
@@ -205,7 +206,15 @@ export async function getMarketData(
     data: {
       valuation: { estimate: null, margin: null, confidence: null },
       growth: { fiveYear: null, trend: null },
-      ownership: { councilTaxBand: null, tenure: null, isConservationArea: false },
+      ownership: {
+        councilTaxBand: null,
+        tenure: null,
+        isConservationArea: false,
+        plotSizeAcres: null,
+        plotSizeMethod: null,
+        plotSizeUprn: null,
+        plotSizeTitleNumber: null,
+      },
       risks: { crimeRating: null, floodRisk: null, floodRiskLevel: null },
       comparables: { averagePrice: null, count: 0, timeRange: '' },
     },
@@ -238,6 +247,7 @@ export async function getMarketData(
       crimeResult,
       floodRiskResult,
       conservationResult,
+      plotSizeResult,
     ] = await Promise.allSettled([
       mappedType
         ? propertyDataGet<ValuationSaleResponse>('valuation-sale', valuationParams, { retriesOnThrottle: 2 })
@@ -258,6 +268,14 @@ export async function getMarketData(
       propertyDataGet<FloodRiskResponse>('flood-risk', { postcode }, { retriesOnThrottle: 2 }),
 
       propertyDataGet<ConservationAreaResponse>('conservation-area', { postcode }, { retriesOnThrottle: 2 }),
+
+      getPlotSizeAcres({
+        address: [doorNumber, streetName, postcode].filter(Boolean).join(' '),
+        postcode,
+        streetName,
+        doorNumber,
+        bustCache: !!bustCache,
+      }),
     ]);
 
     // ── Valuation ───────────────────────────────────────────────
@@ -335,9 +353,18 @@ export async function getMarketData(
     }
 
     // ── Success check ───────────────────────────────────────────
+    if (plotSizeResult.status === 'fulfilled') {
+      const ps = plotSizeResult.value;
+      baseResult.data!.ownership.plotSizeAcres = ps.plotSizeAcres;
+      baseResult.data!.ownership.plotSizeMethod = ps.method;
+      baseResult.data!.ownership.plotSizeUprn = ps.uprn;
+      baseResult.data!.ownership.plotSizeTitleNumber = ps.titleNumber;
+    }
+
     const hasSomeData =
       baseResult.data!.valuation.estimate !== null ||
       baseResult.data!.ownership.councilTaxBand !== null ||
+      baseResult.data!.ownership.plotSizeAcres !== null ||
       baseResult.data!.risks.crimeRating !== null ||
       baseResult.data!.risks.floodRisk !== null ||
       baseResult.data!.growth.fiveYear !== null ||

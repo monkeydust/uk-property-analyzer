@@ -34,6 +34,13 @@ const OFSTED_RATINGS: Record<string, string> = {
   '4': 'Inadequate',
 };
 
+// Caching the browser instance
+// In Next.js dev mode, module state is cleared on HMR.
+// We use globalThis to ensure the browser instance survives.
+const PLATFORM_GLOBAL = globalThis as unknown as {
+  _locratingBrowser?: Browser;
+};
+
 /**
  * Ensure the debug directory exists for saving captured HTML + cookies
  */
@@ -47,11 +54,20 @@ async function ensureDebugDir(): Promise<void> {
 
 /**
  * Launch a Playwright Chromium browser in headless mode
+ * or return the cached instance if it's already running.
  */
 export async function launchBrowser(): Promise<{ browser: Browser; context: BrowserContext }> {
-  const browser = await chromium.launch({
-    headless: true,
-  });
+  let browser = PLATFORM_GLOBAL._locratingBrowser;
+
+  if (!browser || !browser.isConnected()) {
+    log('Launching new Chromium browser instance...');
+    browser = await chromium.launch({
+      headless: true,
+    });
+    PLATFORM_GLOBAL._locratingBrowser = browser;
+  } else {
+    log('Reusing existing Chromium browser instance');
+  }
 
   const context = await browser.newContext({
     userAgent:
@@ -124,7 +140,7 @@ async function isLoggedIn(context: BrowserContext): Promise<boolean> {
     return false;
   } catch (error) {
     logErr('Session check request failed', error);
-    if (page) await page.close().catch(() => {});
+    if (page) await page.close().catch(() => { });
     return false;
   }
 }
@@ -168,7 +184,7 @@ export async function loginToLocrating(page: Page): Promise<boolean> {
 
     log('Submitting login form...');
     await Promise.all([
-      page.waitForNavigation({ waitUntil: 'networkidle', timeout: 15000 }).catch(() => {}),
+      page.waitForNavigation({ waitUntil: 'networkidle', timeout: 15000 }).catch(() => { }),
       page.click('form.am-login-form-form input[type="submit"]'),
     ]);
 
@@ -224,7 +240,7 @@ async function dismissModals(page: Page, iframe: Frame | null): Promise<void> {
   // 2. Iframe Semantic UI start dialog — pressing Escape dismisses it
   if (iframe) {
     try {
-      await iframe.click('body').catch(() => {});
+      await iframe.click('body').catch(() => { });
       await page.keyboard.press('Escape');
       await page.waitForTimeout(1000);
     } catch {
@@ -331,11 +347,11 @@ export async function getAttendedSchools(address: string, knownLat?: number, kno
   let browser: Browser | null = null;
 
   try {
-    // Step 1: Launch browser with saved cookies
-    log('Step 1: Launching browser...');
+    // Step 1: Launch browser and get context (browser is cached)
+    log('Step 1: Getting browser context...');
     const { browser: b, context } = await launchBrowser();
     browser = b;
-    log('Browser launched');
+    log('Browser context acquired');
 
     // Step 2: Check if saved cookies give us an authenticated session
     log('Step 2: Checking login state...');
@@ -348,7 +364,7 @@ export async function getAttendedSchools(address: string, knownLat?: number, kno
 
       if (!loginSuccess) {
         logErr('Login failed');
-        await browser.close();
+        await context.close();
         return {
           success: false,
           areaName: null,
@@ -397,8 +413,8 @@ export async function getAttendedSchools(address: string, knownLat?: number, kno
     const iframe = page.frame({ url: /schoolsmap_osm/ });
     if (!iframe) {
       logErr('Could not find schoolsmap_osm iframe — taking screenshot');
-      await page.screenshot({ path: path.join(DEBUG_DIR, 'locrating-no-iframe.png'), fullPage: true }).catch(() => {});
-      await browser.close();
+      await page.screenshot({ path: path.join(DEBUG_DIR, 'locrating-no-iframe.png'), fullPage: true }).catch(() => { });
+      await context.close();
       return {
         success: false,
         areaName: null,
@@ -437,7 +453,7 @@ export async function getAttendedSchools(address: string, knownLat?: number, kno
           sidebar.style.transform = 'translate3d(0, 0, 0)';
         }
         if (typeof (window as any).$ !== 'undefined' && (window as any).$.fn?.sidebar) {
-          try { (window as any).$('.ui.sidebar').sidebar('show'); } catch {}
+          try { (window as any).$('.ui.sidebar').sidebar('show'); } catch { }
         }
       });
       await page.waitForTimeout(1000);
@@ -573,7 +589,7 @@ export async function getAttendedSchools(address: string, knownLat?: number, kno
           const mapLat = currentCoords.mapLat as number;
           const mapLng = currentCoords.mapLng as number;
           const moved = Math.abs(mapLat - preSearchCoords.lat) > 0.0001 ||
-                         Math.abs(mapLng - preSearchCoords.lng) > 0.0001;
+            Math.abs(mapLng - preSearchCoords.lng) > 0.0001;
           if (moved) {
             finalLat = mapLat;
             finalLng = mapLng;
@@ -599,9 +615,9 @@ export async function getAttendedSchools(address: string, knownLat?: number, kno
 
       if (!coordsFound) {
         logErr(`Geocode failed after 20s for "${address}". nominatim=${nominatimResolved}`);
-        await page.screenshot({ path: path.join(DEBUG_DIR, 'locrating-geocode-failed.png'), fullPage: true }).catch(() => {});
+        await page.screenshot({ path: path.join(DEBUG_DIR, 'locrating-geocode-failed.png'), fullPage: true }).catch(() => { });
         await saveCookies(context);
-        await browser.close();
+        await context.close();
         return {
           success: false,
           areaName: null,
@@ -642,9 +658,9 @@ export async function getAttendedSchools(address: string, knownLat?: number, kno
     // Step 12: Parse captured response
     if (!attendedResponse) {
       logErr('No GetAttendedSchools_plugin response captured — taking screenshot');
-      await page.screenshot({ path: path.join(DEBUG_DIR, 'locrating-no-api-response.png'), fullPage: true }).catch(() => {});
+      await page.screenshot({ path: path.join(DEBUG_DIR, 'locrating-no-api-response.png'), fullPage: true }).catch(() => { });
       await saveCookies(context);
-      await browser.close();
+      await context.close();
       return {
         success: false,
         areaName: null,
@@ -663,7 +679,7 @@ export async function getAttendedSchools(address: string, knownLat?: number, kno
     if (!parsed) {
       logErr('Failed to parse GetAttendedSchools_plugin response');
       await saveCookies(context);
-      await browser.close();
+      await context.close();
       return {
         success: false,
         areaName: null,
@@ -684,8 +700,8 @@ export async function getAttendedSchools(address: string, knownLat?: number, kno
     }
 
     await saveCookies(context);
-    await browser.close();
-    log('Done. Browser closed.');
+    await context.close();
+    log('Done. Context closed (browser remains running).');
 
     return {
       success: true,
@@ -697,9 +713,9 @@ export async function getAttendedSchools(address: string, knownLat?: number, kno
 
   } catch (error) {
     logErr('Unhandled exception in scraper', error);
-    if (browser) {
-      try { await browser.close(); } catch {}
-    }
+    // Note: We don't close the browser here, since it's global.
+    // We could close the context if we had a reference to it in this scope,
+    // but throwing/returning allows the caller to handle it.
     return {
       success: false,
       areaName: null,

@@ -220,7 +220,7 @@ export async function getPlotSizeAcres(input: {
     }
   }
 
-  // 2) Fallback: uprns by location — prefer same street, then nearest with title
+  // 2) Fallback: uprns by location — prefer exact number+street, then same street, then nearest
   if (input.coordinates) {
     try {
       const { latitude, longitude } = input.coordinates;
@@ -231,16 +231,35 @@ export async function getPlotSizeAcres(input: {
       if (uprns.status === 'success' && Array.isArray(uprns.data) && uprns.data.length > 0) {
         const ordered = pickNearest(uprns.data, latitude, longitude);
         const street = (input.streetName || '').trim().toUpperCase();
+        const door = (input.doorNumber || '').trim();
+        const numToken = (door.match(/^\d+/)?.[0]) || '';
 
-        // Prefer same-street UPRNs (even if door number differs)
-        const sameStreet = street
+        // Priority 1: exact number + street match
+        const exactMatch = (street && numToken)
           ? ordered.filter((r) => {
-              const s = r.addressParts?.street || '';
-              return s.toUpperCase() === street;
+              const primary = String(r.addressParts?.primary || '').trim();
+              const s = (r.addressParts?.street || '').toUpperCase();
+              return primary === numToken && s === street;
             })
           : [];
 
-        const candidates = sameStreet.length > 0 ? sameStreet : ordered;
+        // Priority 2: same street (different number — fallback)
+        const sameStreet = street
+          ? ordered.filter((r) => {
+              const s = (r.addressParts?.street || '').toUpperCase();
+              return s === street;
+            })
+          : [];
+
+        // Try exact first, then same-street, then any
+        const candidates = exactMatch.length > 0
+          ? exactMatch
+          : sameStreet.length > 0
+            ? sameStreet
+            : ordered;
+
+        // Determine if this is an exact match or a fallback
+        const isExact = exactMatch.length > 0;
 
         for (const row of candidates.slice(0, 10)) {
           const uprn = row.uprn !== undefined && row.uprn !== null ? String(row.uprn) : null;
@@ -253,7 +272,7 @@ export async function getPlotSizeAcres(input: {
             uprn,
             titleNumber,
             matchedAddress: row.address ? String(row.address) : null,
-            method: 'uprns-location',
+            method: isExact ? 'address-match-uprn' : 'uprns-location',
           };
           plotSizeCache.set(cacheKey, result, TTL.PLOT_SIZE);
           return result;
@@ -297,6 +316,7 @@ export async function getPlotSizeAcres(input: {
           : [];
 
         // Try exact first, then same-street, then any
+        const isExactPostcode = exactMatch.length > 0;
         const candidates = exactMatch.length > 0
           ? exactMatch
           : sameStreetMatch.length > 0
@@ -314,7 +334,7 @@ export async function getPlotSizeAcres(input: {
             uprn,
             titleNumber,
             matchedAddress: row.address ? String(row.address) : null,
-            method: 'uprns-postcode',
+            method: isExactPostcode ? 'address-match-uprn' : 'uprns-postcode',
           };
           plotSizeCache.set(cacheKey, result, TTL.PLOT_SIZE);
           return result;

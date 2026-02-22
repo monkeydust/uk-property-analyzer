@@ -1005,7 +1005,9 @@ function HomeContent() {
                             <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
                               {typeof result.property.marketData?.data?.ownership?.plotSizeAcres === 'number'
                                 ? <>{result.property.marketData.data.ownership.plotSizeAcres.toFixed(2)} <span className="text-sm font-medium">acres</span>{result.property.marketData.data.ownership.plotSizeMethod && result.property.marketData.data.ownership.plotSizeMethod !== 'address-match-uprn' && <span className="text-amber-500 ml-0.5" title="Approximate — based on a nearby property on the same street">*</span>}</>
-                                : 'N/A'}
+                                : marketDataLoading
+                                  ? <span className="flex items-center gap-1.5 text-slate-400 text-sm font-medium h-7"><Loader2 className="w-4 h-4 animate-spin" /> Fetching</span>
+                                  : 'N/A'}
                             </p>
                           </div>
                         </div>

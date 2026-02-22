@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/data/production.db
+      # Add your necessary environment variables below
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - PROPERTYDATA_API_KEY=${PROPERTYDATA_API_KEY}
+      - AUTH_SECRET=${AUTH_SECRET}
+      - SITE_PASSWORD=${SITE_PASSWORD}
+      - LOCRATING_EMAIL=${LOCRATING_EMAIL}
+      - LOCRATING_PASSWORD=${LOCRATING_PASSWORD}
+    volumes:
+      - sqlite_data:/app/data
+      - playwright_debug:/app/debug # For playwright debug/cookies persistence
+
+volumes:
+  sqlite_data:
+  playwright_debug:

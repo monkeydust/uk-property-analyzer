@@ -42,7 +42,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-slate-900 mb-1">UK Property Analyzer</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900 mb-1 font-[family-name:var(--font-inter)] tracking-tight">rightdata<span className="text-teal-500">.uk</span></h1>
           <p className="text-sm text-slate-500">Enter the password to continue</p>
         </div>
 

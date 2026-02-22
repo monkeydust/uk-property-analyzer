@@ -1,6 +1,6 @@
 {
-  "name": "UK Property Analyzer",
-  "short_name": "PropAnalyzer",
+  "name": "rightdata.uk",
+  "short_name": "rightdata",
   "description": "Analyze Rightmove property listings",
   "start_url": "/",
   "display": "standalone",

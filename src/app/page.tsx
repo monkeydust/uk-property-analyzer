@@ -815,8 +815,8 @@ function HomeContent() {
         <header className="mb-6 sm:mb-8">
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100 font-[family-name:var(--font-playfair)] truncate">
-                UK Property Analyzer
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-slate-100 font-[family-name:var(--font-inter)] truncate tracking-tight">
+                rightdata<span className="text-teal-500">.uk</span>
               </h1>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">

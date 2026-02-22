@@ -1,0 +1,253 @@
+{
+  "success": true,
+  "data": {
+    "id": "166419734",
+    "property": {
+      "id": "166419734",
+      "sourceUrl": "https://www.rightmove.co.uk/properties/166419734#/?channel=RES_BUY",
+      "price": 2795000,
+      "pricePerSqFt": 635,
+      "listingType": "sale",
+      "bedrooms": 5,
+      "bathrooms": 5,
+      "squareFootage": 4402,
+      "propertyType": "detached",
+      "address": {
+        "displayAddress": "Newberries Avenue, Radlett, Hertfordshire, WD7",
+        "streetName": "Newberries Avenue",
+        "doorNumber": "59",
+        "postcode": "WD7 7EL",
+        "postcodeOutward": "WD7",
+        "postcodeInward": "7EL"
+      },
+      "epc": null,
+      "coordinates": {
+        "latitude": 51.682381,
+        "longitude": -0.310181
+      },
+      "nearestStations": null,
+      "nearestTubeStations": null,
+      "description": "*** Chain Free ***A truly impressive five-bedroom, five-bathroom detached family home, ideally situated within walking distance of Radlett’s mainline station, local shops, and places of worship.Upon entering, you are welcomed by a grand entrance hall, beautifully enhanced by a striking curved staircase. To the front of the property sits a generous living/reception room and a versatile study, while the heart of the home is the stunning open-plan kitchen and lifestyle room. Designed for both entertaining and everyday family living, this space is complemented by Bi-fold doors opening onto the rear garden, creating a seamless flow of natural light throughout.The first floor hosts the luxurious principal suite, complete with a private dressing room, en-suite bathroom, and balcony. Three further bedrooms are located on this level, two of which benefit from en-suite facilities. The top floor offers a spacious games room and a fifth bedroom with a stylish Jack and Jill shower room.Externally, the home features ample off-street parking and a beautifully landscaped rear garden with a generous lawn and large patio area, perfect for outdoor entertaining.BrochuresParticulars",
+      "features": [],
+      "images": [
+        "https://media.rightmove.co.uk/property-photo/af2c415df/166419734/af2c415dfbb6dc01705f628302cd5669.jpeg",
+        "https://media.rightmove.co.uk/property-photo/e02573340/166419734/e025733403b2b1d31b8c719198c8613d.jpeg",
+        "https://media.rightmove.co.uk/property-photo/1558db7c8/166419734/1558db7c80456f09a874ecbf5a64d4ac.jpeg",
+        "https://media.rightmove.co.uk/brand/brand_logo_4717_0002.jpeg",
+        "https://media.rightmove.co.uk/dir/property-floorplan/09a5e9d8c/166419734/09a5e9d8c30a90cc588ac3b8c6b99bbb.jpeg",
+        "https://media.rightmove.co.uk/assets/a04c507a807f8bdd7543a397a71b0ac4/images/property-marker-active-2x.png",
+        "https://media.rightmove.co.uk/dir/customer/industry-affiliation/ombudsman-for-combined-estate-agent.png",
+        "https://media.rightmove.co.uk/dir/customer/industry-affiliation/national-association-of-estate-agents.png",
+        "https://media.rightmove.co.uk/dir/customer/industry-affiliation/association-of-residential-lettings-agent.png",
+        "https://media.rightmove.co.uk/dir/property-photo/af2c415df/166419734/af2c415dfbb6dc01705f628302cd5669.jpeg"
+      ],
+      "scrapedAt": "2026-02-22T15:23:17.465Z"
+    },
+    "postcode": "WD7 7EL"
+  },
+  "logs": [
+    {
+      "id": "1771773797521-23fudl4",
+      "timestamp": "2026-02-22T15:23:17.521Z",
+      "level": "info",
+      "message": "Cached for 24h | https://www.rightmove.co.uk/properties/166419734#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771773797521-f4bxr21",
+      "timestamp": "2026-02-22T15:23:17.521Z",
+      "level": "info",
+      "message": "Door number from reverse geocoding: 59",
+      "source": "analyze"
+    },
+    {
+      "id": "1771773797465-vm95k28",
+      "timestamp": "2026-02-22T15:23:17.465Z",
+      "level": "info",
+      "message": "Attempting reverse geocoding for door number...",
+      "source": "analyze"
+    },
+    {
+      "id": "1771773797241-21h2xwo",
+      "timestamp": "2026-02-22T15:23:17.241Z",
+      "level": "info",
+      "message": "Cache MISS — calling OpenRouter | model=anthropic/claude-opus-4.6",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771773797191-t80carh",
+      "timestamp": "2026-02-22T15:23:17.191Z",
+      "level": "info",
+      "message": "Market data retrieved for WD7 7EL: estimate=£2,475,000",
+      "source": "market-data"
+    },
+    {
+      "id": "1771773796999-030tsaa",
+      "timestamp": "2026-02-22T15:23:16.999Z",
+      "level": "info",
+      "message": "Cache MISS — scraping | https://www.rightmove.co.uk/properties/166419734#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771773796998-wvyr8zo",
+      "timestamp": "2026-02-22T15:23:16.998Z",
+      "level": "info",
+      "message": "Cache BUST requested | https://www.rightmove.co.uk/properties/166419734#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771773796052-8km62yz",
+      "timestamp": "2026-02-22T15:23:16.052Z",
+      "level": "info",
+      "message": "Cache MISS — calling OpenRouter | model=anthropic/claude-opus-4.6",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771773795990-rmvenxm",
+      "timestamp": "2026-02-22T15:23:15.99Z",
+      "level": "info",
+      "message": "Market data retrieved for WD7 7EL: estimate=£2,475,000",
+      "source": "market-data"
+    },
+    {
+      "id": "1771773770693-4rho7jt",
+      "timestamp": "2026-02-22T15:22:50.693Z",
+      "level": "info",
+      "message": "Cache MISS — calling OpenRouter | model=anthropic/claude-opus-4.6",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771773770693-suyiihk",
+      "timestamp": "2026-02-22T15:22:50.693Z",
+      "level": "info",
+      "message": "Cache BUST requested | key=anthropic/claude-opus-4.6::166419734",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771773770637-9a9jmrr",
+      "timestamp": "2026-02-22T15:22:50.637Z",
+      "level": "info",
+      "message": "Cached for 7d | \"59 Newberries Avenue, Radlett, Hertfordshire, WD7 7EL\"",
+      "source": "schools"
+    },
+    {
+      "id": "1771773747576-qxibo6u",
+      "timestamp": "2026-02-22T15:22:27.576Z",
+      "level": "info",
+      "message": "Calculated 2 commute times",
+      "source": "commute"
+    },
+    {
+      "id": "1771773747522-vcgseb0",
+      "timestamp": "2026-02-22T15:22:27.522Z",
+      "level": "info",
+      "message": "Rail walking times fetched",
+      "source": "stations"
+    },
+    {
+      "id": "1771773747518-xza87pe",
+      "timestamp": "2026-02-22T15:22:27.518Z",
+      "level": "info",
+      "message": "Tube walking times fetched",
+      "source": "stations"
+    },
+    {
+      "id": "1771773747422-96yoagw",
+      "timestamp": "2026-02-22T15:22:27.422Z",
+      "level": "info",
+      "message": "Found 3 train, 3 tube stations",
+      "source": "stations"
+    },
+    {
+      "id": "1771773747403-7o4a4cp",
+      "timestamp": "2026-02-22T15:22:27.403Z",
+      "level": "info",
+      "message": "Cache MISS — fetching attended schools for \"59 Newberries Avenue, Radlett, Hertfordshire, WD7 7EL\" (coords: 51.682381, -0.310181)",
+      "source": "schools"
+    },
+    {
+      "id": "1771773747402-wm0d95k",
+      "timestamp": "2026-02-22T15:22:27.402Z",
+      "level": "info",
+      "message": "Cache BUST requested | \"59 Newberries Avenue, Radlett, Hertfordshire, WD7 7EL\"",
+      "source": "schools"
+    },
+    {
+      "id": "1771773746825-tl07smv",
+      "timestamp": "2026-02-22T15:22:26.826Z",
+      "level": "info",
+      "message": "Calculating commute times from 51.682381,-0.310181",
+      "source": "commute"
+    },
+    {
+      "id": "1771773746742-vwpdgoo",
+      "timestamp": "2026-02-22T15:22:26.742Z",
+      "level": "info",
+      "message": "Fetching stations near 51.682381, -0.310181",
+      "source": "stations"
+    },
+    {
+      "id": "1771773746713-luuocep",
+      "timestamp": "2026-02-22T15:22:26.713Z",
+      "level": "info",
+      "message": "Market data cache MISS | marketData::WD77EL::5::detached",
+      "source": "market-data"
+    },
+    {
+      "id": "1771773746712-tjm95rf",
+      "timestamp": "2026-02-22T15:22:26.712Z",
+      "level": "info",
+      "message": "Cache BUST requested for market data | marketData::WD77EL::5::detached",
+      "source": "market-data"
+    },
+    {
+      "id": "1771773746670-oihw7tn",
+      "timestamp": "2026-02-22T15:22:26.67Z",
+      "level": "info",
+      "message": "Cached for 24h | https://www.rightmove.co.uk/properties/166419734#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771773746669-b0xvn3w",
+      "timestamp": "2026-02-22T15:22:26.669Z",
+      "level": "info",
+      "message": "Door number from reverse geocoding: 59",
+      "source": "analyze"
+    },
+    {
+      "id": "1771773746620-ustukyo",
+      "timestamp": "2026-02-22T15:22:26.62Z",
+      "level": "info",
+      "message": "Attempting reverse geocoding for door number...",
+      "source": "analyze"
+    },
+    {
+      "id": "1771773746182-pk6gg3r",
+      "timestamp": "2026-02-22T15:22:26.182Z",
+      "level": "info",
+      "message": "Cache MISS — scraping | https://www.rightmove.co.uk/properties/166419734#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771773746180-mlwj9g9",
+      "timestamp": "2026-02-22T15:22:26.18Z",
+      "level": "info",
+      "message": "Cache BUST requested | https://www.rightmove.co.uk/properties/166419734#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771773743896-imioby2",
+      "timestamp": "2026-02-22T15:22:23.896Z",
+      "level": "info",
+      "message": "Cache MISS — calling OpenRouter | model=anthropic/claude-opus-4.6",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771773743864-o202qmw",
+      "timestamp": "2026-02-22T15:22:23.864Z",
+      "level": "info",
+      "message": "Market data cache MISS | marketData::WD77EL::5::detached",
+      "source": "market-data"
+    }
+  ]
+}

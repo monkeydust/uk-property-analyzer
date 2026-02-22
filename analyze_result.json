@@ -1,0 +1,708 @@
+{
+  "success": true,
+  "data": {
+    "id": "166419734",
+    "property": {
+      "id": "166419734",
+      "sourceUrl": "https://www.rightmove.co.uk/properties/166419734#/?channel=RES_BUY",
+      "price": 2795000,
+      "pricePerSqFt": 635,
+      "listingType": "sale",
+      "bedrooms": 5,
+      "bathrooms": 5,
+      "squareFootage": 4402,
+      "propertyType": "detached",
+      "address": {
+        "displayAddress": "Newberries Avenue, Radlett, Hertfordshire, WD7",
+        "streetName": "Newberries Avenue",
+        "doorNumber": "59",
+        "postcode": "WD7 7EL",
+        "postcodeOutward": "WD7",
+        "postcodeInward": "7EL"
+      },
+      "epc": null,
+      "coordinates": {
+        "latitude": 51.682381,
+        "longitude": -0.310181
+      },
+      "nearestStations": null,
+      "nearestTubeStations": null,
+      "description": "*** Chain Free ***A truly impressive five-bedroom, five-bathroom detached family home, ideally situated within walking distance of Radlett’s mainline station, local shops, and places of worship.Upon entering, you are welcomed by a grand entrance hall, beautifully enhanced by a striking curved staircase. To the front of the property sits a generous living/reception room and a versatile study, while the heart of the home is the stunning open-plan kitchen and lifestyle room. Designed for both entertaining and everyday family living, this space is complemented by Bi-fold doors opening onto the rear garden, creating a seamless flow of natural light throughout.The first floor hosts the luxurious principal suite, complete with a private dressing room, en-suite bathroom, and balcony. Three further bedrooms are located on this level, two of which benefit from en-suite facilities. The top floor offers a spacious games room and a fifth bedroom with a stylish Jack and Jill shower room.Externally, the home features ample off-street parking and a beautifully landscaped rear garden with a generous lawn and large patio area, perfect for outdoor entertaining.BrochuresParticulars",
+      "features": [],
+      "images": [
+        "https://media.rightmove.co.uk/property-photo/af2c415df/166419734/af2c415dfbb6dc01705f628302cd5669.jpeg",
+        "https://media.rightmove.co.uk/property-photo/e02573340/166419734/e025733403b2b1d31b8c719198c8613d.jpeg",
+        "https://media.rightmove.co.uk/property-photo/1558db7c8/166419734/1558db7c80456f09a874ecbf5a64d4ac.jpeg",
+        "https://media.rightmove.co.uk/brand/brand_logo_4717_0002.jpeg",
+        "https://media.rightmove.co.uk/dir/property-floorplan/09a5e9d8c/166419734/09a5e9d8c30a90cc588ac3b8c6b99bbb.jpeg",
+        "https://media.rightmove.co.uk/assets/a04c507a807f8bdd7543a397a71b0ac4/images/property-marker-active-2x.png",
+        "https://media.rightmove.co.uk/dir/customer/industry-affiliation/ombudsman-for-combined-estate-agent.png",
+        "https://media.rightmove.co.uk/dir/customer/industry-affiliation/national-association-of-estate-agents.png",
+        "https://media.rightmove.co.uk/dir/customer/industry-affiliation/association-of-residential-lettings-agent.png",
+        "https://media.rightmove.co.uk/dir/property-photo/af2c415df/166419734/af2c415dfbb6dc01705f628302cd5669.jpeg"
+      ],
+      "scrapedAt": "2026-02-22T15:05:59.901Z"
+    },
+    "postcode": "WD7 7EL"
+  },
+  "logs": [
+    {
+      "id": "1771772760004-ftjdlra",
+      "timestamp": "2026-02-22T15:06:00.004Z",
+      "level": "info",
+      "message": "Cached for 24h | https://www.rightmove.co.uk/properties/166419734#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771772760003-8ikc6x3",
+      "timestamp": "2026-02-22T15:06:00.003Z",
+      "level": "info",
+      "message": "Door number from reverse geocoding: 59",
+      "source": "analyze"
+    },
+    {
+      "id": "1771772759901-7dj27wa",
+      "timestamp": "2026-02-22T15:05:59.901Z",
+      "level": "info",
+      "message": "Attempting reverse geocoding for door number...",
+      "source": "analyze"
+    },
+    {
+      "id": "1771772759562-6t78568",
+      "timestamp": "2026-02-22T15:05:59.562Z",
+      "level": "info",
+      "message": "Cache MISS — scraping | https://www.rightmove.co.uk/properties/166419734#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771772759561-x9cpryc",
+      "timestamp": "2026-02-22T15:05:59.561Z",
+      "level": "info",
+      "message": "Cache BUST requested | https://www.rightmove.co.uk/properties/166419734#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771772715167-htge0an",
+      "timestamp": "2026-02-22T15:05:15.167Z",
+      "level": "info",
+      "message": "Cache HIT | model=anthropic/claude-opus-4.6 | key=anthropic/claude-opus-4.6::167252324",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772714972-absnsn7",
+      "timestamp": "2026-02-22T15:05:14.972Z",
+      "level": "info",
+      "message": "Tube walking times fetched",
+      "source": "stations"
+    },
+    {
+      "id": "1771772714957-wmxnpcn",
+      "timestamp": "2026-02-22T15:05:14.957Z",
+      "level": "info",
+      "message": "Rail walking times fetched",
+      "source": "stations"
+    },
+    {
+      "id": "1771772714921-0v8by14",
+      "timestamp": "2026-02-22T15:05:14.921Z",
+      "level": "info",
+      "message": "Calculated 2 commute times",
+      "source": "commute"
+    },
+    {
+      "id": "1771772714912-q3xth7w",
+      "timestamp": "2026-02-22T15:05:14.912Z",
+      "level": "info",
+      "message": "Found 3 train, 3 tube stations",
+      "source": "stations"
+    },
+    {
+      "id": "1771772714898-s4yreho",
+      "timestamp": "2026-02-22T15:05:14.898Z",
+      "level": "info",
+      "message": "Cache HIT | model=anthropic/claude-opus-4.6 | key=anthropic/claude-opus-4.6::167252324",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772714835-s37gy2w",
+      "timestamp": "2026-02-22T15:05:14.835Z",
+      "level": "info",
+      "message": "Calculating commute times from 51.627037,0.367466",
+      "source": "commute"
+    },
+    {
+      "id": "1771772714830-krrvluo",
+      "timestamp": "2026-02-22T15:05:14.83Z",
+      "level": "info",
+      "message": "Fetching stations near 51.627037, 0.367466",
+      "source": "stations"
+    },
+    {
+      "id": "1771772714824-h5fc3aw",
+      "timestamp": "2026-02-22T15:05:14.824Z",
+      "level": "info",
+      "message": "Cache HIT | \"Humes Farm Church Lane, Hutton, Brentwood, CM13 1SB\"",
+      "source": "schools"
+    },
+    {
+      "id": "1771772714820-8dpgix2",
+      "timestamp": "2026-02-22T15:05:14.82Z",
+      "level": "info",
+      "message": "Market data cache HIT | marketData::CM131SB::6::detached",
+      "source": "market-data"
+    },
+    {
+      "id": "1771772714769-o4yi1qt",
+      "timestamp": "2026-02-22T15:05:14.769Z",
+      "level": "info",
+      "message": "Cache HIT | https://www.rightmove.co.uk/properties/167252324#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771772713576-4ctxrxp",
+      "timestamp": "2026-02-22T15:05:13.576Z",
+      "level": "info",
+      "message": "Cache HIT | model=anthropic/claude-opus-4.6 | key=anthropic/claude-opus-4.6::167252324",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772713513-vz97y0h",
+      "timestamp": "2026-02-22T15:05:13.513Z",
+      "level": "info",
+      "message": "Cache HIT | model=anthropic/claude-opus-4.6 | key=anthropic/claude-opus-4.6::167252324",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772713402-csga8ox",
+      "timestamp": "2026-02-22T15:05:13.402Z",
+      "level": "info",
+      "message": "Tube walking times fetched",
+      "source": "stations"
+    },
+    {
+      "id": "1771772713399-4zdb9ic",
+      "timestamp": "2026-02-22T15:05:13.399Z",
+      "level": "info",
+      "message": "Rail walking times fetched",
+      "source": "stations"
+    },
+    {
+      "id": "1771772713342-kw3x0ya",
+      "timestamp": "2026-02-22T15:05:13.342Z",
+      "level": "info",
+      "message": "Found 3 train, 3 tube stations",
+      "source": "stations"
+    },
+    {
+      "id": "1771772713133-wrgno5j",
+      "timestamp": "2026-02-22T15:05:13.133Z",
+      "level": "info",
+      "message": "Calculated 2 commute times",
+      "source": "commute"
+    },
+    {
+      "id": "1771772713033-92xw02v",
+      "timestamp": "2026-02-22T15:05:13.033Z",
+      "level": "info",
+      "message": "Cache HIT | model=anthropic/claude-opus-4.6 | key=anthropic/claude-opus-4.6::167252324",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772712965-qphyb4j",
+      "timestamp": "2026-02-22T15:05:12.965Z",
+      "level": "info",
+      "message": "Calculating commute times from 51.627037,0.367466",
+      "source": "commute"
+    },
+    {
+      "id": "1771772712959-huubqb5",
+      "timestamp": "2026-02-22T15:05:12.959Z",
+      "level": "info",
+      "message": "Fetching stations near 51.627037, 0.367466",
+      "source": "stations"
+    },
+    {
+      "id": "1771772712948-j89kq2x",
+      "timestamp": "2026-02-22T15:05:12.948Z",
+      "level": "info",
+      "message": "Cache HIT | \"Humes Farm Church Lane, Hutton, Brentwood, CM13 1SB\"",
+      "source": "schools"
+    },
+    {
+      "id": "1771772712931-omqkj5e",
+      "timestamp": "2026-02-22T15:05:12.931Z",
+      "level": "info",
+      "message": "Market data cache HIT | marketData::CM131SB::6::detached",
+      "source": "market-data"
+    },
+    {
+      "id": "1771772712843-8tg9tkr",
+      "timestamp": "2026-02-22T15:05:12.843Z",
+      "level": "info",
+      "message": "Cache HIT | https://www.rightmove.co.uk/properties/167252324#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771772343839-ie5z1jr",
+      "timestamp": "2026-02-22T14:59:03.839Z",
+      "level": "info",
+      "message": "Success | model=anthropic/claude-opus-4.6 | response_length=18798 chars | cached for 24h",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772343839-s5arwue",
+      "timestamp": "2026-02-22T14:59:03.839Z",
+      "level": "info",
+      "message": "OpenRouter ID: gen-1771772218-YdpF8HPjADENq6Jq5MKE",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772343838-w58tb3b",
+      "timestamp": "2026-02-22T14:59:03.838Z",
+      "level": "info",
+      "message": "Token usage | prompt=14137 | completion=4857 | total=18994",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772343838-ky82vth",
+      "timestamp": "2026-02-22T14:59:03.838Z",
+      "level": "info",
+      "message": "Response received | model=anthropic/claude-opus-4.6 | routed_to=anthropic/claude-opus-4.6 | elapsed=7.0s | finish_reason=stop",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772337075-uaky5jm",
+      "timestamp": "2026-02-22T14:58:57.075Z",
+      "level": "info",
+      "message": "Success | model=anthropic/claude-opus-4.6 | response_length=19581 chars | cached for 24h",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772337075-bqz5q6w",
+      "timestamp": "2026-02-22T14:58:57.075Z",
+      "level": "info",
+      "message": "OpenRouter ID: gen-1771772216-3Q0YsObPBAeCDAMJoISF",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772337074-ly34tlr",
+      "timestamp": "2026-02-22T14:58:57.074Z",
+      "level": "info",
+      "message": "Token usage | prompt=13869 | completion=5120 | total=18989",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772337074-k4lo5y9",
+      "timestamp": "2026-02-22T14:58:57.074Z",
+      "level": "info",
+      "message": "Response received | model=anthropic/claude-opus-4.6 | routed_to=anthropic/claude-opus-4.6 | elapsed=7.4s | finish_reason=stop",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772218780-ppeoclw",
+      "timestamp": "2026-02-22T14:56:58.78Z",
+      "level": "info",
+      "message": "Cache MISS — calling OpenRouter | model=anthropic/claude-opus-4.6",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772218502-r8kcb44",
+      "timestamp": "2026-02-22T14:56:58.502Z",
+      "level": "info",
+      "message": "Market data retrieved for CM13 1SB: estimate=£N/A",
+      "source": "market-data"
+    },
+    {
+      "id": "1771772216519-6sxbrgq",
+      "timestamp": "2026-02-22T14:56:56.519Z",
+      "level": "info",
+      "message": "Cache MISS — calling OpenRouter | model=anthropic/claude-opus-4.6",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771772216351-0095qja",
+      "timestamp": "2026-02-22T14:56:56.351Z",
+      "level": "info",
+      "message": "Cached for 7d | \"Humes Farm Church Lane, Hutton, Brentwood, CM13 1SB\"",
+      "source": "schools"
+    },
+    {
+      "id": "1771772193812-jud9205",
+      "timestamp": "2026-02-22T14:56:33.812Z",
+      "level": "info",
+      "message": "Tube walking times fetched",
+      "source": "stations"
+    },
+    {
+      "id": "1771772193802-d9ycjaj",
+      "timestamp": "2026-02-22T14:56:33.802Z",
+      "level": "info",
+      "message": "Rail walking times fetched",
+      "source": "stations"
+    },
+    {
+      "id": "1771772193764-w6basis",
+      "timestamp": "2026-02-22T14:56:33.764Z",
+      "level": "info",
+      "message": "Calculated 2 commute times",
+      "source": "commute"
+    },
+    {
+      "id": "1771772193717-r6duckg",
+      "timestamp": "2026-02-22T14:56:33.717Z",
+      "level": "info",
+      "message": "Found 3 train, 3 tube stations",
+      "source": "stations"
+    },
+    {
+      "id": "1771772193538-ehjm50q",
+      "timestamp": "2026-02-22T14:56:33.538Z",
+      "level": "info",
+      "message": "Calculating commute times from 51.627037,0.367466",
+      "source": "commute"
+    },
+    {
+      "id": "1771772193532-p6k2orw",
+      "timestamp": "2026-02-22T14:56:33.532Z",
+      "level": "info",
+      "message": "Fetching stations near 51.627037, 0.367466",
+      "source": "stations"
+    },
+    {
+      "id": "1771772193528-8ni7mww",
+      "timestamp": "2026-02-22T14:56:33.528Z",
+      "level": "info",
+      "message": "Cache MISS — fetching attended schools for \"Humes Farm Church Lane, Hutton, Brentwood, CM13 1SB\" (coords: 51.627037, 0.367466)",
+      "source": "schools"
+    },
+    {
+      "id": "1771772193521-7501p60",
+      "timestamp": "2026-02-22T14:56:33.521Z",
+      "level": "info",
+      "message": "Market data cache MISS | marketData::CM131SB::6::detached",
+      "source": "market-data"
+    },
+    {
+      "id": "1771772193397-frf6d93",
+      "timestamp": "2026-02-22T14:56:33.397Z",
+      "level": "info",
+      "message": "Cached for 24h | https://www.rightmove.co.uk/properties/167252324#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771772193397-eqy37x0",
+      "timestamp": "2026-02-22T14:56:33.397Z",
+      "level": "info",
+      "message": "Door number from reverse geocoding: Humes Farm",
+      "source": "analyze"
+    },
+    {
+      "id": "1771772193277-uqnl4jv",
+      "timestamp": "2026-02-22T14:56:33.277Z",
+      "level": "info",
+      "message": "Attempting reverse geocoding for door number...",
+      "source": "analyze"
+    },
+    {
+      "id": "1771772192947-jwixva1",
+      "timestamp": "2026-02-22T14:56:32.947Z",
+      "level": "info",
+      "message": "Cache MISS — scraping | https://www.rightmove.co.uk/properties/167252324#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771769956415-xdpvom4",
+      "timestamp": "2026-02-22T14:19:16.415Z",
+      "level": "info",
+      "message": "Cached for 24h | https://www.rightmove.co.uk/properties/166419734#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771769956414-kzrkt7k",
+      "timestamp": "2026-02-22T14:19:16.414Z",
+      "level": "info",
+      "message": "Door number from reverse geocoding: 59",
+      "source": "analyze"
+    },
+    {
+      "id": "1771769956342-0mao773",
+      "timestamp": "2026-02-22T14:19:16.342Z",
+      "level": "info",
+      "message": "Attempting reverse geocoding for door number...",
+      "source": "analyze"
+    },
+    {
+      "id": "1771769956047-xxkq975",
+      "timestamp": "2026-02-22T14:19:16.047Z",
+      "level": "info",
+      "message": "Cache MISS — scraping | https://www.rightmove.co.uk/properties/166419734#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771769956046-guge5bp",
+      "timestamp": "2026-02-22T14:19:16.046Z",
+      "level": "info",
+      "message": "Cache BUST requested | https://www.rightmove.co.uk/properties/166419734#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771769800895-owtvu2h",
+      "timestamp": "2026-02-22T14:16:40.895Z",
+      "level": "info",
+      "message": "Success | model=anthropic/claude-opus-4.6 | response_length=19217 chars | cached for 24h",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769800894-ljkz8az",
+      "timestamp": "2026-02-22T14:16:40.894Z",
+      "level": "info",
+      "message": "OpenRouter ID: gen-1771769681-idR93FGDFurLzKRRVyAa",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769800894-iuknyrn",
+      "timestamp": "2026-02-22T14:16:40.894Z",
+      "level": "info",
+      "message": "Token usage | prompt=11441 | completion=5267 | total=16708",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769800893-v0p692r",
+      "timestamp": "2026-02-22T14:16:40.893Z",
+      "level": "info",
+      "message": "Response received | model=anthropic/claude-opus-4.6 | routed_to=anthropic/claude-opus-4.6 | elapsed=7.5s | finish_reason=stop",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769796602-0r3knia",
+      "timestamp": "2026-02-22T14:16:36.602Z",
+      "level": "info",
+      "message": "Success | model=anthropic/claude-opus-4.6 | response_length=18939 chars | cached for 24h",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769796601-fdhghja",
+      "timestamp": "2026-02-22T14:16:36.601Z",
+      "level": "info",
+      "message": "OpenRouter ID: gen-1771769682-A5921Txzc3pAWwoqu2EI",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769796601-d1okf79",
+      "timestamp": "2026-02-22T14:16:36.601Z",
+      "level": "info",
+      "message": "Token usage | prompt=10947 | completion=5098 | total=16045",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769796600-13bmnsa",
+      "timestamp": "2026-02-22T14:16:36.6Z",
+      "level": "info",
+      "message": "Response received | model=anthropic/claude-opus-4.6 | routed_to=anthropic/claude-opus-4.6 | elapsed=6.8s | finish_reason=stop",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769718486-0tr6hxi",
+      "timestamp": "2026-02-22T14:15:18.486Z",
+      "level": "info",
+      "message": "Success | model=anthropic/claude-opus-4.6 | response_length=18780 chars | cached for 24h",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769718485-wc6svle",
+      "timestamp": "2026-02-22T14:15:18.485Z",
+      "level": "info",
+      "message": "OpenRouter ID: gen-1771769593-WRjGNbGrcsSPMs0QdW42",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769718485-wag8p03",
+      "timestamp": "2026-02-22T14:15:18.485Z",
+      "level": "info",
+      "message": "Token usage | prompt=14427 | completion=5159 | total=19586",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769718484-qvkim4r",
+      "timestamp": "2026-02-22T14:15:18.484Z",
+      "level": "info",
+      "message": "Response received | model=anthropic/claude-opus-4.6 | routed_to=anthropic/claude-opus-4.6 | elapsed=6.7s | finish_reason=stop",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769682195-tj8270x",
+      "timestamp": "2026-02-22T14:14:42.195Z",
+      "level": "info",
+      "message": "Cache MISS — calling OpenRouter | model=anthropic/claude-opus-4.6",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769682154-4bdyuoo",
+      "timestamp": "2026-02-22T14:14:42.154Z",
+      "level": "info",
+      "message": "Market data retrieved for WD7 7EL: estimate=£2,475,000",
+      "source": "market-data"
+    },
+    {
+      "id": "1771769681735-joykcqv",
+      "timestamp": "2026-02-22T14:14:41.735Z",
+      "level": "info",
+      "message": "Cache MISS — calling OpenRouter | model=anthropic/claude-opus-4.6",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769681685-0n4onks",
+      "timestamp": "2026-02-22T14:14:41.685Z",
+      "level": "info",
+      "message": "Cached for 7d | \"59 Newberries Avenue, Radlett, Hertfordshire, WD7 7EL\"",
+      "source": "schools"
+    },
+    {
+      "id": "1771769659593-peedp9t",
+      "timestamp": "2026-02-22T14:14:19.593Z",
+      "level": "info",
+      "message": "Tube walking times fetched",
+      "source": "stations"
+    },
+    {
+      "id": "1771769659567-jc572jo",
+      "timestamp": "2026-02-22T14:14:19.567Z",
+      "level": "info",
+      "message": "Rail walking times fetched",
+      "source": "stations"
+    },
+    {
+      "id": "1771769659523-94wsqn2",
+      "timestamp": "2026-02-22T14:14:19.523Z",
+      "level": "info",
+      "message": "Calculated 2 commute times",
+      "source": "commute"
+    },
+    {
+      "id": "1771769659473-p49a014",
+      "timestamp": "2026-02-22T14:14:19.473Z",
+      "level": "info",
+      "message": "Found 3 train, 3 tube stations",
+      "source": "stations"
+    },
+    {
+      "id": "1771769659296-8kkzeli",
+      "timestamp": "2026-02-22T14:14:19.296Z",
+      "level": "info",
+      "message": "Calculating commute times from 51.682381,-0.310181",
+      "source": "commute"
+    },
+    {
+      "id": "1771769659268-45fkt9o",
+      "timestamp": "2026-02-22T14:14:19.268Z",
+      "level": "info",
+      "message": "Fetching stations near 51.682381, -0.310181",
+      "source": "stations"
+    },
+    {
+      "id": "1771769659227-3ym9ks6",
+      "timestamp": "2026-02-22T14:14:19.227Z",
+      "level": "info",
+      "message": "Cache MISS — fetching attended schools for \"59 Newberries Avenue, Radlett, Hertfordshire, WD7 7EL\" (coords: 51.682381, -0.310181)",
+      "source": "schools"
+    },
+    {
+      "id": "1771769659215-bfyzgz0",
+      "timestamp": "2026-02-22T14:14:19.215Z",
+      "level": "info",
+      "message": "Market data cache MISS | marketData::WD77EL::5::detached",
+      "source": "market-data"
+    },
+    {
+      "id": "1771769659153-rnrur9e",
+      "timestamp": "2026-02-22T14:14:19.153Z",
+      "level": "info",
+      "message": "Cached for 24h | https://www.rightmove.co.uk/properties/166419734#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771769659153-y562ya1",
+      "timestamp": "2026-02-22T14:14:19.153Z",
+      "level": "info",
+      "message": "Door number from reverse geocoding: 59",
+      "source": "analyze"
+    },
+    {
+      "id": "1771769659005-8qla0y1",
+      "timestamp": "2026-02-22T14:14:19.005Z",
+      "level": "info",
+      "message": "Attempting reverse geocoding for door number...",
+      "source": "analyze"
+    },
+    {
+      "id": "1771769658664-502ku2r",
+      "timestamp": "2026-02-22T14:14:18.664Z",
+      "level": "info",
+      "message": "Cache MISS — scraping | https://www.rightmove.co.uk/properties/166419734#",
+      "source": "analyze"
+    },
+    {
+      "id": "1771769617906-g1r5liv",
+      "timestamp": "2026-02-22T14:13:37.907Z",
+      "level": "info",
+      "message": "Market data retrieved for HP8 4UD: estimate=£3,975,000",
+      "source": "market-data"
+    },
+    {
+      "id": "1771769593210-b07hyrt",
+      "timestamp": "2026-02-22T14:13:13.21Z",
+      "level": "info",
+      "message": "Cache MISS — calling OpenRouter | model=anthropic/claude-opus-4.6",
+      "source": "ai-analysis"
+    },
+    {
+      "id": "1771769593174-0mpw8bj",
+      "timestamp": "2026-02-22T14:13:13.174Z",
+      "level": "info",
+      "message": "Market data cache MISS | marketData::HP84UD::5::detached",
+      "source": "market-data"
+    },
+    {
+      "id": "1771769406845-prxur2k",
+      "timestamp": "2026-02-22T14:10:06.845Z",
+      "level": "info",
+      "message": "Cached for 7d (POST) | \"20 Downing Street, London\"",
+      "source": "schools"
+    },
+    {
+      "id": "1771769377623-fu6myub",
+      "timestamp": "2026-02-22T14:09:37.623Z",
+      "level": "info",
+      "message": "Cache MISS (POST) — fetching attended schools for \"20 Downing Street, London\"",
+      "source": "schools"
+    },
+    {
+      "id": "1771769350782-07af5mp",
+      "timestamp": "2026-02-22T14:09:10.782Z",
+      "level": "info",
+      "message": "Cached for 7d (POST) | \"10 Downing Street, London\"",
+      "source": "schools"
+    },
+    {
+      "id": "1771769337808-vnl2z2o",
+      "timestamp": "2026-02-22T14:08:57.808Z",
+      "level": "info",
+      "message": "Cached for 7d (POST) | \"10 Downing Street, London\"",
+      "source": "schools"
+    },
+    {
+      "id": "1771769321598-drs1frm",
+      "timestamp": "2026-02-22T14:08:41.598Z",
+      "level": "info",
+      "message": "Cache MISS (POST) — fetching attended schools for \"10 Downing Street, London\"",
+      "source": "schools"
+    },
+    {
+      "id": "1771769307213-js0rs3y",
+      "timestamp": "2026-02-22T14:08:27.213Z",
+      "level": "info",
+      "message": "Cache MISS (POST) — fetching attended schools for \"10 Downing Street, London\"",
+      "source": "schools"
+    }
+  ]
+}

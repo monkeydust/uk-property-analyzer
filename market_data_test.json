@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "data": {
+    "valuation": {
+      "estimate": null,
+      "margin": null,
+      "confidence": null
+    },
+    "growth": {
+      "fiveYear": 16.8,
+      "trend": "up"
+    },
+    "ownership": {
+      "councilTaxBand": "H",
+      "tenure": null,
+      "isConservationArea": false,
+      "plotSizeAcres": 0.21,
+      "plotSizeMethod": "address-match-uprn",
+      "plotSizeUprn": "10013027660",
+      "plotSizeTitleNumber": "HD11863"
+    },
+    "risks": {
+      "crimeRating": "Low crime",
+      "floodRisk": "Very Low",
+      "floodRiskLevel": "low"
+    },
+    "comparables": {
+      "averagePrice": 2196500,
+      "count": 20,
+      "timeRange": ""
+    }
+  }
+}

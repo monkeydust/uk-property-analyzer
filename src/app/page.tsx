@@ -102,6 +102,11 @@ function HomeContent() {
   const [schoolsLoading, setSchoolsLoading] = useState(false);
   const [schoolsData, setSchoolsData] = useState<AttendedSchoolsResult | null>(null);
   const [schoolsError, setSchoolsError] = useState<string | null>(null);
+  const [schoolsElapsed, setSchoolsElapsed] = useState(0);
+
+  // Dashboard polling: detect when a background schools scrape completes
+  const [pendingSchoolsPropertyId, setPendingSchoolsPropertyId] = useState<string | null>(null);
+  const [showSchoolsReadyToast, setShowSchoolsReadyToast] = useState(false);
   const [secondaryExpanded, setSecondaryExpanded] = useState(true);
   const [primaryExpanded, setPrimaryExpanded] = useState(true);
   const [secondaryMoreExpanded, setSecondaryMoreExpanded] = useState(false);
@@ -153,6 +158,44 @@ function HomeContent() {
     loadSavedProperties();
   }, []);
 
+  // Schools elapsed-time ticker — resets whenever a new scrape starts
+  useEffect(() => {
+    if (!schoolsLoading) {
+      setSchoolsElapsed(0);
+      return;
+    }
+    setSchoolsElapsed(0);
+    const interval = setInterval(() => {
+      setSchoolsElapsed(prev => prev + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [schoolsLoading]);
+
+  // Dashboard polling: every 10s check if the pending property now has schools data
+  useEffect(() => {
+    if (!pendingSchoolsPropertyId || view !== 'dashboard') return;
+
+    let attempts = 0;
+    const MAX_ATTEMPTS = 12; // ~2 minutes
+
+    const interval = setInterval(async () => {
+      attempts++;
+      const properties = await getSavedProperties();
+      setSavedProperties(properties);
+      const target = properties.find(p => p.id === pendingSchoolsPropertyId);
+      if (target?.data.schools) {
+        setPendingSchoolsPropertyId(null);
+        setShowSchoolsReadyToast(true);
+        clearInterval(interval);
+      } else if (attempts >= MAX_ATTEMPTS) {
+        setPendingSchoolsPropertyId(null);
+        clearInterval(interval);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [pendingSchoolsPropertyId, view]);
+
   // Track whether we're loading from a saved property (skip re-fetching)
   const loadedFromSaveRef = useRef(false);
   // Track whether we should bust caches on the next fetch cycle (refresh)
@@ -174,6 +217,11 @@ function HomeContent() {
       aiFiredForPropertyRef.current = property.id;
     } else {
       aiFiredForPropertyRef.current = null;
+    }
+    // Stop polling if user navigates into the property we were waiting for
+    if (pendingSchoolsPropertyId === property.id) {
+      setPendingSchoolsPropertyId(null);
+      setShowSchoolsReadyToast(false);
     }
     setResult({
       property: {
@@ -226,6 +274,12 @@ function HomeContent() {
   };
 
   const handleBackToDashboard = async () => {
+    // If schools are still loading for the current property, register it for
+    // dashboard polling so we can notify the user when it completes.
+    if (schoolsLoading && activePropertyIdRef.current) {
+      setPendingSchoolsPropertyId(activePropertyIdRef.current);
+    }
+
     setView('dashboard');
     setSelectedProperty(null);
     setResult(null);
@@ -1327,8 +1381,8 @@ function HomeContent() {
                   </div>
                 )}
 
-                {/* Schools Attended Section */}
-                {(schoolsLoading || schoolsData || schoolsError) && (
+                {/* Schools Attended Section — always rendered when result is present */}
+                {result && (
                   <div className="p-6 bg-white dark:bg-slate-900 rounded-xl shadow-md">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
@@ -1342,12 +1396,50 @@ function HomeContent() {
                       )}
                     </div>
 
-                    {/* Loading state */}
+                    {/* Loading state — rich skeleton with elapsed timer */}
                     {schoolsLoading && (
-                      <div className="flex items-center justify-center gap-3 py-8 text-slate-400">
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        <span className="text-sm">Fetching school data...</span>
+                      <div className="space-y-4">
+                        {/* Status bar */}
+                        <div className="flex items-center gap-3 px-1">
+                          <Loader2 className="w-4 h-4 animate-spin text-teal-500 flex-shrink-0" />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Fetching school catchment data from Locrating…</span>
+                              <span className="text-xs tabular-nums text-slate-400 flex-shrink-0 ml-2">{schoolsElapsed}s</span>
+                            </div>
+                            {/* Animated progress bar */}
+                            <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-teal-400 rounded-full transition-all duration-1000"
+                                style={{
+                                  width: `${Math.min(95, (schoolsElapsed / 90) * 100)}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        {/* Note */}
+                        <p className="text-xs text-slate-400 dark:text-slate-500 px-1">
+                          This requires a browser session on Locrating and typically takes 30–90 seconds for a new address. The data will appear automatically — no need to refresh.
+                        </p>
+                        {/* Skeleton rows */}
+                        <div className="space-y-2 pt-1">
+                          {[75, 55, 40, 30, 20].map((w, i) => (
+                            <div key={i} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg animate-pulse">
+                              <div className="w-10 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
+                              <div className={`h-4 bg-slate-200 dark:bg-slate-700 rounded`} style={{ width: `${w}%` }} />
+                              <div className="ml-auto w-16 h-5 bg-slate-200 dark:bg-slate-700 rounded-full flex-shrink-0" />
+                            </div>
+                          ))}
+                        </div>
                       </div>
+                    )}
+
+                    {/* Idle state — no data, not loading, no error (e.g. saved property with no schools yet) */}
+                    {!schoolsLoading && !schoolsData && !schoolsError && (
+                      <p className="text-sm text-slate-400 dark:text-slate-500 py-4 text-center">
+                        School catchment data not available for this property.
+                      </p>
                     )}
 
                     {/* Error state */}
@@ -1886,6 +1978,24 @@ function HomeContent() {
             onUndo={handleUndo}
             onDismiss={handleDismissUndo}
           />
+        )}
+
+        {/* Schools Ready Toast — shown on dashboard when background scrape completes */}
+        {showSchoolsReadyToast && (
+          <div
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-2xl shadow-2xl border border-slate-700 dark:border-slate-200 animate-in fade-in slide-in-from-bottom-4 duration-300"
+            style={{ maxWidth: 'calc(100vw - 2rem)' }}
+          >
+            <GraduationCap className="w-5 h-5 text-teal-400 dark:text-teal-600 flex-shrink-0" />
+            <span className="text-sm font-medium">School catchment data is ready — tap the property to view</span>
+            <button
+              onClick={() => setShowSchoolsReadyToast(false)}
+              className="ml-2 p-1 rounded-full hover:bg-white/10 dark:hover:bg-black/10 transition-colors flex-shrink-0"
+              aria-label="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         )}
       </div>
     </div>

@@ -131,6 +131,7 @@ function HomeContent() {
 
   // Saved properties state
   const [savedProperties, setSavedProperties] = useState<SavedProperty[]>([]);
+  const [propertiesLoading, setPropertiesLoading] = useState(true);
   const [view, setView] = useState<'dashboard' | 'analysis'>('dashboard');
   const [selectedProperty, setSelectedProperty] = useState<SavedProperty | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -152,8 +153,12 @@ function HomeContent() {
   // Load saved properties on mount
   useEffect(() => {
     const loadSavedProperties = async () => {
-      const properties = await getSavedProperties();
-      setSavedProperties(properties);
+      try {
+        const properties = await getSavedProperties();
+        setSavedProperties(properties);
+      } finally {
+        setPropertiesLoading(false);
+      }
     };
     loadSavedProperties();
   }, []);
@@ -390,6 +395,9 @@ function HomeContent() {
       ? paramUrl
       : paramText.match(/https?:\/\/[^\s]*rightmove\.co\.uk[^\s]*/)?.[0] || null;
     if (rightmoveUrl) {
+      // Immediately switch to analysis view so the user never sees
+      // the empty dashboard flash while properties are still loading from the DB
+      setView('analysis');
       setUrl(rightmoveUrl);
       submitUrl(rightmoveUrl);
     }
@@ -926,6 +934,20 @@ function HomeContent() {
                     onClick={() => handlePropertyClick(savedProp)}
                     onDelete={(e) => handleDeleteProperty(e, savedProp)}
                   />
+                ))}
+              </div>
+            ) : propertiesLoading ? (
+              // Skeleton cards shown while fetching from DB on mount
+              <div className="space-y-3">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 animate-pulse">
+                    <div className="flex-shrink-0 w-20 h-14 rounded-lg bg-slate-200 dark:bg-slate-700" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4" />
+                      <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/3" />
+                      <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-1/4" />
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (

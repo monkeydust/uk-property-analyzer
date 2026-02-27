@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Property, AnalysisResponse, AttendedSchoolsResult, MarketDataResult } from '@/lib/types/property';
-import { Bed, Bath, Ruler, Home, MapPin, Copy, Check, ChevronDown, ChevronUp, Loader2, Zap, Train, CircleDot, HelpCircle, Clipboard, X, GraduationCap, Sparkles, FileText, Trash2, Plus, ArrowLeft, RefreshCw, LandPlot } from 'lucide-react';
+import { Bed, Bath, Ruler, Home, MapPin, Copy, Check, ChevronDown, ChevronUp, Loader2, Zap, Train, CircleDot, HelpCircle, Clipboard, X, GraduationCap, Sparkles, FileText, Trash2, Plus, ArrowLeft, RefreshCw, LandPlot, Link } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -122,7 +122,8 @@ function HomeContent() {
   const [marketDataLoading, setMarketDataLoading] = useState(false);
   const [marketData, setMarketData] = useState<MarketDataResult | null>(null);
 
-  // Ref to track the currently active property ID to avoid UI state collisions
+  // Transactions state
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
   // from background tasks processing previous searches
   const activePropertyIdRef = useRef<string | null>(null);
 
@@ -133,6 +134,99 @@ function HomeContent() {
   const [savedProperties, setSavedProperties] = useState<SavedProperty[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(true);
   const [view, setView] = useState<'dashboard' | 'analysis'>('dashboard');
+
+  // Unified Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
+  const [isSearchingAddress, setIsSearchingAddress] = useState(false);
+
+  const isUrl = searchQuery.trim().startsWith('http://') || searchQuery.trim().startsWith('https://');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Debounced address autocomplete
+  useEffect(() => {
+    if (!searchQuery || isUrl) {
+      setAddressSuggestions([]);
+      return;
+    }
+
+    // Auto-hide suggestions if we've already selected this exact address
+    if (!showSuggestions) return;
+
+    const handler = setTimeout(async () => {
+      setIsSearchingAddress(true);
+      try {
+        const res = await fetch(`/api/address/search?q=${encodeURIComponent(searchQuery)}`);
+        const data = await res.json();
+        if (data.success) {
+          setAddressSuggestions(data.predictions || []);
+        } else {
+          setAddressSuggestions([]);
+        }
+      } catch (err) {
+        setAddressSuggestions([]);
+      } finally {
+        setIsSearchingAddress(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [searchQuery, showSuggestions, isUrl]);
+
+  const handleAddressSelect = async (placeId: string, description: string) => {
+    setShowSuggestions(false);
+    setSearchQuery(description);
+
+    setError(null);
+    setResult(null);
+    setSchoolsData(null);
+    setSchoolsError(null);
+    setAiAnalysis(null);
+    setAiError(null);
+    setAiLoading(false);
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/address/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ placeId }),
+      });
+
+      const data: AnalysisResponse = await response.json();
+
+      if (data.logs) mergeLogs(data.logs);
+
+      if (!data.success || !data.data) {
+        setError(data.error || 'Failed to resolve address');
+        return;
+      }
+
+      const property = data.data.property;
+      activePropertyIdRef.current = property.id;
+      commuteTimesRef.current = [];
+
+      saveProperty(property.id, property.sourceUrl || '', {
+        property,
+        schools: null,
+        aiAnalysis: null,
+        aiModel: null,
+        commuteTimes: commuteTimesRef.current,
+      }).then(() => {
+        getSavedProperties().then(setSavedProperties);
+      });
+
+      setResult({
+        property: data.data.property,
+        postcode: data.data.postcode,
+      });
+    } catch {
+      setError('Network error - please try again');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const [selectedProperty, setSelectedProperty] = useState<SavedProperty | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [undoState, setUndoState] = useState<{ show: boolean; deletedProperty: SavedProperty | null }>({ show: false, deletedProperty: null });
@@ -268,7 +362,8 @@ function HomeContent() {
   const handleNewAnalysis = () => {
     setView('analysis');
     setSelectedProperty(null);
-    setUrl('');
+    setSearchQuery('');
+    setAddressSuggestions([]);
     setResult(null);
     setSchoolsData(null);
     setSchoolsError(null);
@@ -293,7 +388,8 @@ function HomeContent() {
     setAiAnalysis(null);
     setAiError(null);
     setError(null);
-    setUrl('');
+    setSearchQuery('');
+    setAddressSuggestions([]);
     aiFiredForPropertyRef.current = null;
 
     // Refresh the list when going back to dashboard
@@ -302,7 +398,7 @@ function HomeContent() {
   };
 
   const handleRefresh = async () => {
-    if (!result?.property?.sourceUrl) return;
+    if (!result?.property?.sourceUrl && !result?.property?.id) return;
     setIsRefreshing(true);
     setSchoolsData(null);
     setSchoolsError(null);
@@ -312,7 +408,15 @@ function HomeContent() {
     setLogs([]);
     bustCacheRef.current = true;
     bustAiCacheRef.current = true;
-    await submitUrl(result.property.sourceUrl, true);
+
+    if (result.property?.isOnMarket === false || result.property?.sourceUrl.startsWith('off-market://')) {
+      // Off-market refresh
+      await handleAddressSelect(result.property.id, result.property.address.displayAddress);
+    } else if (result.property?.sourceUrl) {
+      // On-market refresh
+      await submitUrl(result.property.sourceUrl, true);
+    }
+
     setIsRefreshing(false);
   };
 
@@ -375,10 +479,12 @@ function HomeContent() {
     }
   }, [mergeLogs]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    submitUrl(url);
-  };
+  // Unified submission handler
+  const handleSubmit = useCallback((e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!searchQuery || !isUrl) return;
+    submitUrl(searchQuery);
+  }, [searchQuery, isUrl, submitUrl]);
 
   // Feature-detect clipboard API
   useEffect(() => {
@@ -398,7 +504,7 @@ function HomeContent() {
       // Immediately switch to analysis view so the user never sees
       // the empty dashboard flash while properties are still loading from the DB
       setView('analysis');
-      setUrl(rightmoveUrl);
+      setSearchQuery(rightmoveUrl);
       submitUrl(rightmoveUrl);
     }
   }, [searchParams, submitUrl]);
@@ -532,7 +638,10 @@ function HomeContent() {
       }
     }
 
-    const fullAddress = addr;
+    let fullAddress = addr;
+    if (fullAddress.endsWith(', UK')) {
+      fullAddress = fullAddress.slice(0, -4);
+    }
 
     if (!fullAddress || fullAddress.length < 3) return;
 
@@ -635,6 +744,7 @@ function HomeContent() {
                   getSavedProperties().then(setSavedProperties);
                 });
               });
+
               return {
                 ...prev,
                 property: merged,
@@ -654,6 +764,48 @@ function HomeContent() {
         });
     } else {
       setMarketDataLoading(false);
+    }
+
+    // Fetch transactions in parallel
+    if (result.property.address.postcode) {
+      setTransactionsLoading(true);
+      const doorNumberQuery = result.property.address.doorNumber
+        ? `&doorNumber=${encodeURIComponent(result.property.address.doorNumber)}`
+        : '';
+
+      fetch(`/api/transactions?postcode=${encodeURIComponent(result.property.address.postcode)}${doorNumberQuery}${shouldBustCache ? '&bustCache=1' : ''}`)
+        .then(res => res.json())
+        .then(data => {
+          if (activePropertyIdRef.current === propertyId && data.success) {
+            setResult(prev => {
+              if (!prev || prev.property?.id !== propertyId) return prev;
+              const merged = { ...prev.property, transactions: data.data };
+
+              // Save merged data to DB
+              getProperty(propertyId).then(existingSaved => {
+                saveProperty(propertyId, propertyUrl, {
+                  property: merged,
+                  schools: existingSaved?.data.schools || schoolsData,
+                  aiAnalysis: existingSaved?.data.aiAnalysis || aiAnalysis,
+                  aiModel: existingSaved?.data.aiModel || aiModel,
+                  commuteTimes: (commuteTimesRef.current ?? []).length > 0 ? commuteTimesRef.current! : existingSaved?.data.commuteTimes || [],
+                }).then(() => {
+                  getSavedProperties().then(setSavedProperties);
+                });
+              });
+
+              return { ...prev, property: merged };
+            });
+          }
+        })
+        .catch(() => { })
+        .finally(() => {
+          if (activePropertyIdRef.current === propertyId) {
+            setTransactionsLoading(false);
+          }
+        });
+    } else {
+      setTransactionsLoading(false);
     }
 
     // Fetch stations and commute in parallel (if we have coordinates)
@@ -776,7 +928,7 @@ function HomeContent() {
     // Mark as fired for this property
     aiFiredForPropertyRef.current = propertyId;
 
-    // Claude Opus report
+    // Gemini report
     setAiLoading(true);
     setAiError(null);
     setAiAnalysis(null);
@@ -788,7 +940,7 @@ function HomeContent() {
     fetch('/api/ai-analysis', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ propertyJson: combinedJson, model: 'anthropic/claude-opus-4.6', bustCache: shouldBustAiCache }),
+      body: JSON.stringify({ propertyJson: combinedJson, model: 'google/gemini-3-flash-preview', bustCache: shouldBustAiCache }),
     })
       .then(res => res.json())
       .then(data => {
@@ -832,7 +984,8 @@ function HomeContent() {
 
   // Clear input and refocus
   const handleClear = () => {
-    setUrl('');
+    setSearchQuery('');
+    setAddressSuggestions([]);
     inputRef.current?.focus();
   };
 
@@ -877,9 +1030,14 @@ function HomeContent() {
         <header className="mb-6 sm:mb-8">
           <div className="flex items-center justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-slate-100 font-[family-name:var(--font-inter)] truncate tracking-tight">
-                rightdata<span className="text-teal-500">.uk</span>
-              </h1>
+              <button
+                onClick={view === 'analysis' ? handleBackToDashboard : undefined}
+                className={`text-left ${view === 'analysis' ? 'cursor-pointer hover:opacity-80 transition-opacity' : 'cursor-default'}`}
+              >
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-slate-100 font-[family-name:var(--font-inter)] truncate tracking-tight">
+                  rightdata<span className="text-teal-500">.uk</span>
+                </h1>
+              </button>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {view === 'analysis' && (
@@ -963,58 +1121,100 @@ function HomeContent() {
         {/* Analysis View */}
         {view === 'analysis' && (
           <div>
-            {/* Search Form */}
-            <form onSubmit={handleSubmit} className="mb-8">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <input
-                    ref={inputRef}
-                    type="url"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    onPaste={handleNativePaste}
-                    placeholder="Paste a Rightmove link..."
-                    className="w-full pl-4 pr-20 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 shadow-sm"
-                    disabled={loading}
-                  />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    {url ? (
-                      <button
-                        type="button"
-                        onClick={handleClear}
-                        className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-full transition-colors mr-1 shadow-sm"
-                        aria-label="Clear"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    ) : clipboardAvailable ? (
-                      <button
-                        type="button"
-                        onClick={handlePasteButton}
-                        className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-full transition-colors mr-1 shadow-sm"
-                        aria-label="Paste from clipboard"
-                      >
-                        <Clipboard className="w-4 h-4" />
-                      </button>
-                    ) : null}
+            {/* Unified Search Form */}
+            <div className="mb-8">
+              <div className="relative z-10 w-full">
+                <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative flex-1">
+                    {isUrl ? (
+                      <Link className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    ) : (
+                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                    )}
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        if (!isUrl) setShowSuggestions(true);
+                      }}
+                      onFocus={() => {
+                        if (!isUrl && searchQuery) setShowSuggestions(true);
+                      }}
+                      onBlur={() => {
+                        // Delay hiding so clicks on suggestions can fire
+                        setTimeout(() => setShowSuggestions(false), 200);
+                      }}
+                      onPaste={handleNativePaste}
+                      placeholder="Paste a Rightmove link or start typing a UK address..."
+                      className="w-full pl-11 pr-20 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-slate-900 dark:text-slate-100 placeholder:text-slate-400 shadow-sm"
+                      disabled={loading}
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      {isSearchingAddress ? (
+                        <Loader2 className="w-5 h-5 text-slate-400 animate-spin mr-2" />
+                      ) : searchQuery ? (
+                        <button
+                          type="button"
+                          onClick={handleClear}
+                          className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-full transition-colors mr-1 shadow-sm"
+                          aria-label="Clear"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      ) : clipboardAvailable ? (
+                        <button
+                          type="button"
+                          onClick={handlePasteButton}
+                          className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-300 dark:hover:text-slate-100 bg-slate-100 dark:bg-slate-800 rounded-full transition-colors mr-1 shadow-sm"
+                          aria-label="Paste from clipboard"
+                        >
+                          <Clipboard className="w-4 h-4" />
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading || !url}
-                  className="px-6 py-3 bg-slate-800 text-white font-medium rounded-xl hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Analyzing...
-                    </>
-                  ) : (
-                    'Analyze'
+                  {isUrl && (
+                    <button
+                      type="submit"
+                      disabled={loading || !searchQuery}
+                      className="px-6 py-3 bg-slate-800 text-white font-medium rounded-xl hover:bg-slate-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm flex items-center justify-center gap-2"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        'Analyze'
+                      )}
+                    </button>
                   )}
-                </button>
+                </form>
+                {showSuggestions && addressSuggestions.length > 0 && !isUrl && (
+                  <div className="absolute w-full mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden z-20">
+                    {addressSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion.placeId}
+                        onMouseDown={(e) => {
+                          e.preventDefault(); // Prevent input blur
+                          handleAddressSelect(suggestion.placeId, suggestion.description);
+                        }}
+                        className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-b border-slate-100 dark:border-slate-700/50 last:border-0"
+                      >
+                        <div className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                          {suggestion.mainText}
+                        </div>
+                        <div className="text-sm text-slate-500 dark:text-slate-400 truncate">
+                          {suggestion.secondaryText}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            </form>
+            </div>
 
             {/* Error */}
             {error && (
@@ -1038,7 +1238,7 @@ function HomeContent() {
                           <div className="flex items-start gap-3">
                             <MapPin className="w-5 h-5 text-slate-500 dark:text-slate-400 mt-0.5 flex-shrink-0" />
                             <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                              {result.property.address.doorNumber && (
+                              {result.property.address.doorNumber && !result.property.address.displayAddress.startsWith(result.property.address.doorNumber) && (
                                 <span>{result.property.address.doorNumber} </span>
                               )}
                               {(() => {
@@ -1154,32 +1354,43 @@ function HomeContent() {
                     </div>
 
                     {/* Right side - Property Image */}
-                    {result.property.images && result.property.images.length > 0 && (
+                    {(result.property.images && result.property.images.length > 0) || result.property.listingType === 'off-market' ? (
                       <div className="lg:w-80 flex-shrink-0">
-                        <a
-                          href={result.property.sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block relative w-full h-64 lg:h-full min-h-[300px] rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 group"
-                          title="View on Rightmove"
-                        >
-                          <img
-                            src={result.property.images[0]}
-                            alt="Property"
-                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
-                          {result.property.images.length > 1 && (
-                            <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/60 text-white text-xs rounded-full">
-                              +{result.property.images.length - 1} more
-                            </div>
-                          )}
-                        </a>
+                        {result.property.listingType === 'off-market' ? (
+                          <div className="block relative w-full h-64 lg:h-full min-h-[300px] rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 group">
+                            <img
+                              src="/images/off_market.png"
+                              alt="Off Market Property"
+                              className="absolute inset-0 w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                          </div>
+                        ) : (
+                          <a
+                            href={result.property.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block relative w-full h-64 lg:h-full min-h-[300px] rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 group flex-shrink-0"
+                            title="View on Rightmove"
+                          >
+                            <img
+                              src={result.property.images?.[0] || '/placeholder-property.jpg'}
+                              alt="Property"
+                              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                            {result.property.images && result.property.images.length > 1 && (
+                              <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/60 text-white text-xs rounded-full">
+                                +{result.property.images.length - 1} more
+                              </div>
+                            )}
+                          </a>
+                        )}
                       </div>
-                    )}
+                    ) : null}
                   </div>
 
-                  {/* Market Insights Card */}
+                  {/* Market Insights & Transactions Card */}
                   {marketDataLoading && (
                     <div className="pt-4 mt-4">
                       <MarketInsightsSkeleton />
@@ -1190,6 +1401,13 @@ function HomeContent() {
                       <MarketInsightsCard
                         marketData={marketData}
                         listingPrice={result.property.price}
+                        transactions={result.property.transactions}
+                        transactionsLoading={transactionsLoading}
+                        address={{
+                          doorNumber: result.property.address.doorNumber,
+                          streetName: result.property.address.streetName,
+                          postcode: result.property.address.postcode
+                        }}
                       />
                     </div>
                   )}
@@ -1719,7 +1937,7 @@ function HomeContent() {
                   <div className="flex items-center gap-2 mb-4">
                     <Sparkles className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                     <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Summary Report</h2>
-                    <span className="text-xs text-slate-400 font-normal">Claude Opus</span>
+                    <span className="text-xs text-slate-400 font-normal">Gemini Flash</span>
                   </div>
 
                   {!aiLoading && !aiAnalysis && !aiError && (

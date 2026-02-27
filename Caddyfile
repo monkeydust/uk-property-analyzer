@@ -1,0 +1,3 @@
+rightdata.uk, www.rightdata.uk {
+    reverse_proxy localhost:3000
+}

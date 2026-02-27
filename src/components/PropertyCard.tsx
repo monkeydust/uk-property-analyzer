@@ -12,30 +12,30 @@ interface PropertyCardProps {
 export function PropertyCard({ property, onClick, onDelete }: PropertyCardProps) {
   const { data, timestamp } = property;
   const { property: propData } = data;
-  
-  // Get first image or placeholder
-  const imageUrl = propData.images?.[0] || '/placeholder-property.jpg';
-  
+
+  // Get first image or placeholder based on type
+  const imageUrl = propData.images?.[0] || (propData.listingType === 'off-market' ? '/images/off_market.png' : '/placeholder-property.jpg');
+
   // Format price
-  const priceText = propData.price 
+  const priceText = propData.price
     ? `£${propData.price.toLocaleString()}`
     : 'Price N/A';
-  
+
   return (
-    <div 
+    <div
       onClick={onClick}
       className="group flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border border-slate-200 dark:border-slate-700 active:bg-slate-50 dark:active:bg-slate-800"
     >
       {/* Thumbnail */}
       <div className="flex-shrink-0 w-20 h-14 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800">
-        <img 
-          src={imageUrl} 
+        <img
+          src={imageUrl}
           alt={propData.address.displayAddress}
           className="w-full h-full object-cover"
           loading="lazy"
         />
       </div>
-      
+
       {/* Info */}
       <div className="flex-1 min-w-0">
         <h3 className="font-semibold text-slate-900 dark:text-slate-100 truncate text-sm sm:text-base">
@@ -48,7 +48,7 @@ export function PropertyCard({ property, onClick, onDelete }: PropertyCardProps)
           Saved {formatTimeAgo(timestamp)}
         </p>
       </div>
-      
+
       {/* Delete Button */}
       <div className="flex-shrink-0 border-l border-slate-100 dark:border-slate-800 pl-1 ml-1">
         <button

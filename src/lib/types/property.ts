@@ -6,7 +6,8 @@ export interface Property {
   price: number | null;
   pricePerSqFt: number | null;
   priceQualifier?: string;
-  listingType: 'sale' | 'rent';
+  listingType: 'sale' | 'rent' | 'off-market';
+  isOnMarket?: boolean;
 
   // Property details
   bedrooms: number | null;
@@ -80,6 +81,24 @@ export interface Property {
 
   // PropertyData market insights for home buyers
   marketData?: MarketDataResult | null;
+
+  // HM Land Registry historical transactions for the street/similar properties
+  transactions?: TransactionRecord[] | null;
+}
+
+export interface TransactionRecord {
+  paon: string | null;
+  saon: string | null;
+  street: string | null;
+  town: string | null;
+  county: string | null;
+  postcode: string | null;
+  amount: number;
+  date: string;
+  propertyType: string | null;
+  newBuild: boolean;
+  estateType: string | null;
+  transactionCategory?: string | null;
 }
 
 export interface MarketDataResult {

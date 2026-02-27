@@ -1,0 +1,113 @@
+# Performance Optimizations Walkthrough
+
+This document outlines the performance improvements made to the UK Property Analyzer to reduce latency and improve perceived load times.
+
+## 1. Parallelized Plot Size API Calls
+
+### The Problem
+Previously, the main `/api/analyze` route fetched property details from Rightmove and then *sequentially* waited for the PropertyData API to return the plot size (`getPlotSizeAcres`). Because PropertyData lookups can take 1-3 seconds, this delayed the initial render of the property on the frontend.
+
+### The Solution
+We removed the blocking `getPlotSizeAcres` call from `/api/analyze`. Instead, we moved this logic to `/api/market-data`, which the frontend already fetches asynchronously in the background.
+
+**Changes:**
+- Removed sequential blocking in `src/app/api/analyze/route.ts`.
+- Wired `getPlotSizeAcres` into the concurrent `Promise.allSettled` block inside `src/lib/propertydata/market-data.ts`.
+- Updated `PropertyZenView.tsx` to read `plotSizeAcres` from `property.marketData.data.ownership.plotSizeAcres` instead of `property.plotSizeAcres`.
+
+**Result:**
+The initial property analysis (price, images, core details) now returns significantly faster, improving the Time to First Byte (TTFB) and perceived performance. The plot size streams in alongside other market data.
+
+---
+
+## 2. Playwright Browser Instance Caching
+
+### The Problem
+The `/api/schools` endpoint uses Playwright to scrape school catchment data from Locrating. Previously, every single request launched a brand new Chromium browser instance (`chromium.launch`), adding a massive roughly 1-2 second overhead to every request just for browser boot-up.
+
+### The Solution
+We implemented a module-level cache for the Playwright `Browser` instance.
+
+**Changes:**
+- Updated `launchBrowser` in `src/lib/scraper/locrating.ts` to attach the browser instance to `globalThis` (surviving Next.js HMR in development).
+- On subsequent requests, the scraper simply creates a new, isolated `BrowserContext` (`browser.newContext()`) using the already-running Chromium process.
+- Ensured we only close the `context` at the end of a scrape, leaving the `browser` running for the next request.
+
+**Result:**
+The first request still incurs the browser boot time, but all subsequent requests to `/api/schools` are significantly faster because they reuse the warm Chromium process.
+
+## Verification
+- [x] Verified TypeScript compilation (`npx tsc --noEmit`).
+- [x] Verified production build (`npm run build`).
+- [x] Tested the local dev server.
+- [x] Verified the `/api/schools` endpoint returns valid parsed JSON using the cached browser instance.
+
+---
+
+## 3. Application Data Flow Architecture
+
+The following sequence diagram illustrates the complete flow of data when a user analyzes a new property via a Rightmove URL. It highlights the initial web scrape, the parallel API enrichments, and the final persistence layer.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    
+    actor User
+    participant UI as React Frontend (page.tsx)
+    participant AnalyzeAPI as /api/analyze (Next.js API)
+    participant Scraper as Rightmove Scraper
+    participant API as Ext APIs (PropertyData / Google / Locrating)
+    participant DB as SQLite DB (SavedProperty)
+    
+    User->>UI: Enter Rightmove URL & submit
+    UI->>AnalyzeAPI: POST /api/analyze { url }
+    
+    rect rgb(240, 248, 255)
+        Note right of AnalyzeAPI: Phase 1: Core Property Extraction
+        AnalyzeAPI->>Scraper: Fetch HTML
+        Scraper-->>AnalyzeAPI: Raw HTML
+        AnalyzeAPI->>AnalyzeAPI: Extract Core Data (Price, Beds, Postcode, Images)
+        AnalyzeAPI->>API: Google Geocoding (Postcode -> Lat/Lng)
+        API-->>AnalyzeAPI: Coordinates
+        AnalyzeAPI->>API: Google Places (Nearby Tubes/Trains)
+        API-->>AnalyzeAPI: Nearest Stations
+        AnalyzeAPI-->>UI: Return Initial Property JSON
+    end
+    
+    UI->>UI: Render Core Property UI & Images
+    
+    rect rgb(255, 245, 238)
+        Note right of UI: Phase 2: Parallel Async Enrichments
+        
+        par Market Data Fetch
+            UI->>+AnalyzeAPI: POST /api/market-data
+            AnalyzeAPI->>API: PropertyData APIs (Prices, Crime, Growth, Plot)
+            API-->>AnalyzeAPI: Enrichment Data
+            AnalyzeAPI-->>-UI: MarketDataResult JSON
+            UI->>UI: Render Market Insights
+        and Schools Fetch
+            UI->>+AnalyzeAPI: POST /api/schools
+            AnalyzeAPI->>API: Locrating API
+            API-->>AnalyzeAPI: Attended Schools Data
+            AnalyzeAPI-->>-UI: AttendedSchoolsResult JSON
+            UI->>UI: Render Schools UI
+        and Commute Times Fetch
+            UI->>+AnalyzeAPI: GET /api/commute
+            AnalyzeAPI->>API: Google Distance Matrix API
+            API-->>AnalyzeAPI: Benchmark Durations
+            AnalyzeAPI-->>-UI: CommuteTimes JSON array
+            UI->>UI: Render Commute UI
+        end
+    end
+    
+    rect rgb(240, 255, 240)
+        Note right of UI: Phase 3: Persisting State
+        UI->>AnalyzeAPI: POST /api/saved-properties { property, market, schools, commute }
+        AnalyzeAPI->>DB: prisma.savedProperty.upsert
+        Note over DB: Data is stringified to JSON<br/>and stored in text columns
+        DB-->>AnalyzeAPI: Success Output
+        AnalyzeAPI-->>UI: 200 OK
+    end
+    
+    Note over UI, DB: Next time property is loaded from sidebar, UI fetches directly from DB,<br/>bypassing Scraper and Ext APIs completely.
+```

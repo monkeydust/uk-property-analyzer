@@ -104,6 +104,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
     }
 
     const property = scrapeResult.property;
+    property.isOnMarket = true; // Scraped from Rightmove means it's on market
 
     // Get coordinates
     let coordinates = property.coordinates;

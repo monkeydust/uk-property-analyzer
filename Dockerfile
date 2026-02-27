@@ -3,9 +3,6 @@ FROM node:20-bookworm
 # Set working directory
 WORKDIR /app
 
-# Set environment to production
-ENV NODE_ENV=production
-
 # Copy package files
 COPY package*.json ./
 
@@ -30,6 +27,9 @@ RUN npx prisma generate
 
 # Build Next.js
 RUN npm run build
+
+# Set environment to production
+ENV NODE_ENV=production
 
 # Expose port 3000
 EXPOSE 3000

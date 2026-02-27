@@ -1,110 +1,102 @@
-# Deployment Guide for Hetzner
+# Deployment Guide — rightdata.uk
 
-This guide outlines the simplest and most robust way to deploy the UK Property Analyzer to a Hetzner Cloud VPS using **Docker** and **Docker Compose**. Since this application uses Playwright (requiring Chromium dependencies) and a local SQLite database, a Dockerized environment is highly recommended to keep the dependencies isolated and the database persistent.
+The application is deployed to a **Hetzner Cloud VPS** using Docker and served via **Caddy** with automatic HTTPS.
 
-## Prerequisites
-1. A Hetzner Cloud account (and a newly created project).
-2. A server instance (e.g. **CX22** or **CPX21** running **Ubuntu 22.04 or 24.04** is recommended).
-3. SSH access to your new server.
-4. A root domain or subdomain pointed to the server's IP address if you plan on serving traffic directly (optional but recommended for HTTPS).
+## Server Details
+- **Provider:** Hetzner Cloud
+- **IP:** `89.167.62.131`
+- **OS:** Ubuntu 24.04 LTS
+- **User:** `root`
+- **App directory:** `/opt/uk-property-analyzer`
+- **Live URL:** https://www.rightdata.uk
 
-## Step 1: Prepare the Server
-Connect to your Hetzner VPS via SSH:
+## Architecture
+- **Docker container** runs the Next.js app on port `3000`
+- **Caddy** acts as a reverse proxy on ports `80`/`443`, handling SSL automatically via Let's Encrypt
+- **SQLite database** is persisted via a Docker volume at `/app/data/production.db`
+- **Playwright cookies** are persisted via a Docker volume at `/app/debug`
+
+## ⚠️ Known Quirk: docker-compose v1 on Ubuntu 24.04
+The server has `docker-compose` v1.29.2 (the legacy Python-based CLI). This version has a bug with newer Docker Engine where it cannot recreate existing containers — it crashes with a `KeyError: 'ContainerConfig'` error.
+
+**Workaround:** Always remove the old container before running `up`:
 ```bash
-ssh root@<your_hetzner_ip>
+docker rm -f $(docker ps -q -f name=uk-property-analyzer)
+docker-compose --env-file .env.prod up -d
 ```
 
-Install Docker and Docker Compose on the Ubuntu server:
+## Deploying an Update
+
+SSH into the server (password: ask the user):
 ```bash
-# Update packages
-apt-get update && apt-get upgrade -y
-
-# Install Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
-
-# Install Docker Compose (if not included)
-apt-get install docker-compose-plugin -y
+ssh root@89.167.62.131
 ```
 
-## Step 2: Push Your Code
-You can transfer your code to the server by cloning your Git repository, or using `scp`/`rsync`. 
-
+Then run the full redeploy sequence:
 ```bash
-# Clone the repo inside the /opt directory (or another folder of your choice)
-cd /opt
-git clone <your-repo-url> uk-property-analyzer
-cd uk-property-analyzer
+cd /opt/uk-property-analyzer
+git stash          # stash any server-side local changes (e.g. Dockerfile tweaks)
+git pull           # pull latest code from GitHub
+docker-compose --env-file .env.prod up -d --build  # build new image
+# If docker-compose crashes with 'ContainerConfig' error:
+docker rm -f $(docker ps -q -f name=uk-property-analyzer)
+docker-compose --env-file .env.prod up -d
 ```
 
-## Step 3: Configure Environment Variables
-Copy the local environment template and configure your production keys:
+### After Deploying — Restore the Database
+The new container starts fresh with an empty DB. Re-copy the database from the volume:
 ```bash
-cp .env .env.prod
-nano .env.prod
+docker cp /opt/uk-property-analyzer/production.db $(docker ps -q -f name=uk-property-analyzer):/app/data/production.db
 ```
-
-Inside `.env.prod`, make sure you provide all REQUIRED keys, particularly:
-```
-GOOGLE_MAPS_API_KEY=...
-OPENROUTER_API_KEY=...
-PROPERTYDATA_API_KEY=...
-LOCRATING_EMAIL=...
-LOCRATING_PASSWORD=...
-# Plus any Auth keys if you are using them
-```
-
-## Step 4: Build and Deploy using Docker Compose
-The repository comes equipped with a `Dockerfile` and `docker-compose.yml` specifically configured for this stack (NextJS + Playwright + SQLite Prisma). Make sure to specify the `.env.prod` file when starting.
-
+Or if you want to push the local dev database, `scp` it first then copy:
 ```bash
-# Build the images and start the container in detached mode
-docker compose --env-file .env.prod up -d --build
+# From your local machine:
+scp prisma/dev.db root@89.167.62.131:/opt/uk-property-analyzer/production.db
+# Then on the server:
+docker cp /opt/uk-property-analyzer/production.db $(docker ps -q -f name=uk-property-analyzer):/app/data/production.db
 ```
 
-### What happens in the background?
-1. The `Dockerfile` pulls `node:20-bookworm`, installs Node dependencies, and downloads Playwright System dependencies necessary for Chrome scraping.
-2. It compiles the Next.js application for production.
-3. Automatically sets up a persistent Docker Volume `sqlite_data` (mapped in `docker-compose.yml`) ensuring your `production.db` doesn't get wiped upon restarts.
-4. On startup, Prisma automatically syncs/pushes any new schema rules to your database.
+## Setting Up Caddy (Already Done — For Reference)
 
-You can check the application logs at any time to verify a successful startup:
-```bash
-docker compose logs -f
+Caddy is installed at `/etc/caddy/Caddyfile`:
 ```
-
-## Step 5: (Optional) Set up Reverse Proxy with Nginx & Let's Encrypt
-Right now, the app is running on port `3000`. To make it accessible via standard HTTP/HTTPS (`80/443`), you can install Caddy or Nginx. 
-
-### Quick Caddy Setup (Recommended for effortless HTTPS)
-```bash
-apt install -y debian-keyring debian-archive-keyring apt-transport-https
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
-apt update
-apt install caddy -y
-```
-
-Then, configure the Caddyfile to point your Domain to Port 3000:
-```bash
-nano /etc/caddy/Caddyfile
-```
-Add:
-```
-your-domain.com {
+rightdata.uk, www.rightdata.uk {
     reverse_proxy localhost:3000
 }
 ```
-And finally, restart Caddy:
+
+To reload Caddy config changes:
 ```bash
 systemctl restart caddy
+systemctl status caddy --no-pager
 ```
-Your application should now securely run with Let's Encrypt automated certificates at `https://your-domain.com`.
 
-## Updating Your Application Later
-Whenever you push new code to your remote repository, pull it down to the Hetzner server and rebuild:
+## Environment Variables
+Stored at `/opt/uk-property-analyzer/.env.prod` on the server. Contains:
+- `GOOGLE_MAPS_API_KEY`
+- `OPENROUTER_API_KEY`
+- `PROPERTYDATA_API_KEY`
+- `LOCRATING_EMAIL` / `LOCRATING_PASSWORD`
+- `SITE_PASSWORD`
+- `DATABASE_URL=file:/app/data/production.db`
+
+## Troubleshooting
+
+### Login not working
+The auth cookie is set with the `Secure` flag, so it **only works over HTTPS**. Accessing via raw `http://89.167.62.131:3000` will not work.
+
+### Check container logs
 ```bash
-cd /opt/uk-property-analyzer
-git pull
-docker compose --env-file .env.prod up -d --build
+docker logs $(docker ps -q -f name=uk-property-analyzer) --tail 100
+```
+
+### Check Caddy logs
+```bash
+journalctl -u caddy -n 50 --no-pager
+```
+
+### Check if app is running
+```bash
+docker ps
+curl -s http://localhost:3000 -o /dev/null -w "%{http_code}"
 ```

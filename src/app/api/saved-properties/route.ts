@@ -14,7 +14,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     if (userId === 'admin') {
       whereClause = { userId: 'admin' };
-    } else {
+    } else if (userId === 'demo') {
       // Get list of admin properties demo has hidden (soft-deleted)
       const hidden = await prisma.demoHiddenProperty.findMany({
         select: { propertyId: true },
@@ -25,6 +25,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         userId: { in: ['demo', 'admin'] },
         ...(hiddenIds.size > 0 ? { id: { notIn: [...hiddenIds] } } : {}),
       };
+    } else if (userId === 'stratgroup') {
+      const session = await prisma.stratgroupSession.findUnique({ where: { id: 'stratgroup' } });
+      if (session) {
+        const hoursPassed = (new Date().getTime() - session.startedAt.getTime()) / (1000 * 60 * 60);
+        if (hoursPassed >= 24) {
+          return NextResponse.json(
+            { success: false, error: 'Your 24-hour trial period has expired. Please log in again.' },
+            { status: 403 }
+          );
+        }
+      }
+      whereClause = { userId: 'stratgroup' };
+    } else {
+      whereClause = { userId }; // Fallback
     }
 
     const savedProperties = await prisma.savedProperty.findMany({
@@ -74,10 +88,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    // Expiry check for stratgroup
+    if (userId === 'stratgroup') {
+      const session = await prisma.stratgroupSession.findUnique({ where: { id: 'stratgroup' } });
+      if (session && (new Date().getTime() - session.startedAt.getTime()) / (1000 * 60 * 60) >= 24) {
+        return NextResponse.json({ success: false, error: 'Trial period has expired.' }, { status: 403 });
+      }
+    }
+
     // Upsert the property (create or update) — scoped to this user
-    // If a demo user tries to upsert a property that exists under admin, we create a demo-scoped copy
+    // Provide isolated copies for secondary users
+    const baseId = id.replace(/^(demo__|stratgroup__)/, '');
+    const userScopedId = userId === 'admin' ? baseId : `${userId}__${baseId}`;
+
     const savedProperty = await prisma.savedProperty.upsert({
-      where: { id: userId === 'admin' ? id : `${userId}__${id}` },
+      where: { id: userScopedId },
       update: {
         url,
         timestamp: new Date(),
@@ -90,7 +115,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         commuteTimes: JSON.stringify(data.commuteTimes || []),
       },
       create: {
-        id: userId === 'admin' ? id : `${userId}__${id}`,
+        id: userScopedId,
         userId,
         url,
         timestamp: new Date(),

@@ -44,16 +44,26 @@ docker-compose --env-file .env.prod up -d
 ```
 
 ### After Deploying — Restore the Database
-The new container starts fresh with an empty DB. Re-copy the database from the volume:
+
+> ⚠️ **Important:** The Docker named volume `uk-property-analyzer_sqlite_data` persists `/app/data/production.db` across container restarts. However, because we use `docker rm` to work around the docker-compose v1 bug, always explicitly restore the DB after creating a new container.
+
+**Source of truth for the database is your local `prisma/dev.db`.**
+
 ```bash
-docker cp /opt/uk-property-analyzer/production.db $(docker ps -q -f name=uk-property-analyzer):/app/data/production.db
-```
-Or if you want to push the local dev database, `scp` it first then copy:
-```bash
-# From your local machine:
+# Step 1 (local machine): upload the current dev database
 scp prisma/dev.db root@89.167.62.131:/opt/uk-property-analyzer/production.db
-# Then on the server:
+
+# Step 2 (on server): write it to both the volume and the running container
+cp /opt/uk-property-analyzer/production.db /var/lib/docker/volumes/uk-property-analyzer_sqlite_data/_data/production.db
 docker cp /opt/uk-property-analyzer/production.db $(docker ps -q -f name=uk-property-analyzer):/app/data/production.db
+
+# Step 3 (on server): ensure the Node app can write to the database (and create journal files)
+docker exec $(docker ps -q -f name=uk-property-analyzer) chown -R node:node /app/data
+```
+
+To check how many saved properties are in the DB on the server:
+```bash
+sqlite3 /var/lib/docker/volumes/uk-property-analyzer_sqlite_data/_data/production.db "SELECT COUNT(*) FROM SavedProperty;"
 ```
 
 ## Setting Up Caddy (Already Done — For Reference)

@@ -42,3 +42,9 @@ model DemoHiddenProperty {
   propertyId String @id // The admin-owned property ID demo has "deleted"
   createdAt  DateTime @default(now())
 }
+
+// Tracks the start time of the 24-hour stratgroup session
+model StratgroupSession {
+  id        String   @id @default("stratgroup")
+  startedAt DateTime @default(now())
+}

@@ -86,6 +86,24 @@ export async function DELETE(
       return NextResponse.json({ success: true, data: null });
     }
 
+    if (userId === 'stratgroup') {
+      const session = await prisma.stratgroupSession.findUnique({ where: { id: 'stratgroup' } });
+      if (session && (new Date().getTime() - session.startedAt.getTime()) / (1000 * 60 * 60) >= 24) {
+        return NextResponse.json({ success: false, error: 'Trial period has expired.' }, { status: 403 });
+      }
+
+      const stratId = `stratgroup__${id}`;
+      const stratRow = await prisma.savedProperty.findUnique({ where: { id: stratId } });
+
+      if (stratRow) {
+        await prisma.savedProperty.delete({ where: { id: stratId } });
+        clearCaches(stratRow);
+        return NextResponse.json({ success: true, data: formatPropertyResponse(stratRow) });
+      }
+
+      return NextResponse.json({ success: true, data: null });
+    }
+
     // Admin: hard delete their own row
     const property = await prisma.savedProperty.findUnique({ where: { id } });
 

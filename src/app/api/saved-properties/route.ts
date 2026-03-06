@@ -1,10 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
+function getUserId(request: NextRequest): string {
+  return request.cookies.get('user_id')?.value || 'admin';
+}
+
 // GET /api/saved-properties - Get all saved properties sorted by timestamp (newest first)
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
+    const userId = getUserId(request);
+
+    let whereClause: object;
+
+    if (userId === 'admin') {
+      whereClause = { userId: 'admin' };
+    } else {
+      // Get list of admin properties demo has hidden (soft-deleted)
+      const hidden = await prisma.demoHiddenProperty.findMany({
+        select: { propertyId: true },
+      });
+      const hiddenIds = new Set(hidden.map((h) => h.propertyId));
+
+      whereClause = {
+        userId: { in: ['demo', 'admin'] },
+        ...(hiddenIds.size > 0 ? { id: { notIn: [...hiddenIds] } } : {}),
+      };
+    }
+
     const savedProperties = await prisma.savedProperty.findMany({
+      where: whereClause,
       orderBy: {
         timestamp: 'desc',
       },
@@ -39,6 +63,7 @@ export async function GET(): Promise<NextResponse> {
 // POST /api/saved-properties - Save or update a property
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    const userId = getUserId(request);
     const body = await request.json();
     const { id, url, data } = body;
 
@@ -49,9 +74,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Upsert the property (create or update)
+    // Upsert the property (create or update) — scoped to this user
+    // If a demo user tries to upsert a property that exists under admin, we create a demo-scoped copy
     const savedProperty = await prisma.savedProperty.upsert({
-      where: { id },
+      where: { id: userId === 'admin' ? id : `${userId}__${id}` },
       update: {
         url,
         timestamp: new Date(),
@@ -64,7 +90,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         commuteTimes: JSON.stringify(data.commuteTimes || []),
       },
       create: {
-        id,
+        id: userId === 'admin' ? id : `${userId}__${id}`,
+        userId,
         url,
         timestamp: new Date(),
         propertyData: JSON.stringify(data.property),
@@ -93,3 +120,4 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 }
+

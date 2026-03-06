@@ -1,8 +1,10 @@
 /**
- * Simple in-memory TTL cache.
- * Module-level singleton — survives multiple requests within a server instance.
- * Resets on cold start (acceptable trade-off; no external dependencies needed).
+ * TTL caches — in-memory for speed with optional disk persistence.
+ *
+ * marketDataCache and plotSizeCache are persisted to /app/data/cache/ (Docker
+ * volume) so they survive container restarts. Other caches stay in-memory.
  */
+import { PersistentTTLCache } from '@/lib/cache-persist';
 
 interface CacheEntry<T> {
   value: T;
@@ -58,9 +60,9 @@ export const propertyCache = new TTLCache<any>();   // 24h — Rightmove listing
 export const schoolsCache = new TTLCache<any>();   // 7 days — school data is static per academic year
 export const aiCache = new TTLCache<string>();   // 24h — AI reports are expensive; same property = same report
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const plotSizeCache = new TTLCache<any>();   // 30 days — title plot sizes are stable
+export const plotSizeCache = new PersistentTTLCache<any>('plot-size');   // 30 days — persisted across restarts
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const marketDataCache = new TTLCache<any>(); // 7 days — market data changes slowly
+export const marketDataCache = new PersistentTTLCache<any>('market-data'); // 7 days — persisted across restarts
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const stationsCache = new TTLCache<any>();   // 7 days — station proximity is static
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

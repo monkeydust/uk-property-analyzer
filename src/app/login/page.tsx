@@ -29,7 +29,7 @@ export default function LoginPage() {
         router.push('/');
         router.refresh();
       } else {
-        setError(data.error || 'Incorrect password');
+        setError(data.error || 'User not found');
       }
     } catch {
       setError('Network error — please try again');
@@ -43,7 +43,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-extrabold text-slate-900 mb-1 font-[family-name:var(--font-inter)] tracking-tight">rightdata<span className="text-teal-500">.uk</span></h1>
-          <p className="text-sm text-slate-500">Enter the password to continue</p>
+          <p className="text-sm text-slate-500">Enter your user ID to continue</p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 bg-white rounded-xl shadow-md space-y-4">
@@ -52,7 +52,7 @@ export default function LoginPage() {
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
+              placeholder="User ID"
               autoFocus
               className="w-full px-4 py-3 pr-12 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-slate-900 placeholder:text-slate-400"
               disabled={loading}

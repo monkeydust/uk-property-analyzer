@@ -34,15 +34,17 @@ export async function GET(request: Request) {
         OPTIONAL { ?addr lrcommon:street ?street }
         OPTIONAL { ?addr lrcommon:town ?town }
         OPTIONAL { ?addr lrcommon:county ?county }
+        OPTIONAL { ?transx lrppi:propertyType ?propertyTypeURI }
         OPTIONAL { ?transx lrppi:propertyType/lrcommon:label ?propertyType }
+        OPTIONAL { ?transx lrppi:estateType ?estateTypeURI }
         OPTIONAL { ?transx lrppi:estateType/lrcommon:label ?estateType }
         OPTIONAL { ?transx lrppi:newBuild ?newBuild }
         OPTIONAL { ?transx lrppi:transactionCategory/lrcommon:label ?category }
 
-        FILTER (?date >= "2015-01-01"^^xsd:date)
+        FILTER (?date >= "1995-01-01"^^xsd:date)
       }
       ORDER BY DESC(?date)
-      LIMIT 200
+      LIMIT 500
     `;
 
         const controller = new AbortController();
@@ -69,20 +71,29 @@ export async function GET(request: Request) {
         const bindings = data.results?.bindings || [];
 
         // Map to our unified format
-        const allTransactions = bindings.map((b: any) => ({
-            paon: b.paon?.value || null,
-            saon: b.saon?.value || null,
-            street: b.street?.value || null,
-            town: b.town?.value || null,
-            county: b.county?.value || null,
-            postcode: postcode,
-            amount: parseInt(b.amount?.value, 10),
-            date: b.date?.value,
-            propertyType: b.propertyType?.value || null,
-            newBuild: b.newBuild?.value === 'true',
-            estateType: b.estateType?.value || null,
-            transactionCategory: b.category?.value || null,
-        }));
+        const allTransactions = bindings.map((b: any) => {
+            const extractLabel = (uri: string | null) => {
+                if (!uri) return null;
+                const name = uri.split('/').pop()?.replace(/-/g, ' ');
+                if (!name) return null;
+                return name.charAt(0).toUpperCase() + name.slice(1);
+            };
+
+            return {
+                paon: b.paon?.value || null,
+                saon: b.saon?.value || null,
+                street: b.street?.value || null,
+                town: b.town?.value || null,
+                county: b.county?.value || null,
+                postcode: postcode,
+                amount: parseInt(b.amount?.value, 10),
+                date: b.date?.value,
+                propertyType: b.propertyType?.value || extractLabel(b.propertyTypeURI?.value) || null,
+                newBuild: b.newBuild?.value === 'true',
+                estateType: b.estateType?.value || extractLabel(b.estateTypeURI?.value) || null,
+                transactionCategory: b.category?.value || null,
+            };
+        });
 
         let results = allTransactions;
 

@@ -252,6 +252,11 @@ export async function getMarketData(
     // All calls go through the global serial queue in client.ts
     // which enforces a minimum gap between requests. We can safely
     // use Promise.allSettled — the queue serialises them automatically.
+    //
+    // Plot size is intentionally NOT included here — it fires as a background
+    // task to warm the plotSizeCache, but does not block this response.
+    // The frontend fetches plot size separately via /api/plot-size once the
+    // market data card has rendered.
     const [
       valuationResult,
       pricesResult,
@@ -260,7 +265,6 @@ export async function getMarketData(
       crimeResult,
       floodRiskResult,
       conservationResult,
-      plotSizeResult,
     ] = await Promise.allSettled([
       mappedType
         ? propertyDataGet<ValuationSaleResponse>('valuation-sale', valuationParams, { retriesOnThrottle: 2 })
@@ -281,15 +285,18 @@ export async function getMarketData(
       propertyDataGet<FloodRiskResponse>('flood-risk', { postcode }, { retriesOnThrottle: 2 }),
 
       propertyDataGet<ConservationAreaResponse>('conservation-area', { postcode }, { retriesOnThrottle: 2 }),
-
-      getPlotSizeAcres({
-        address: [doorNumber, streetName, postcode].filter(Boolean).join(' '),
-        postcode,
-        streetName,
-        doorNumber,
-        bustCache: !!bustCache,
-      }),
     ]);
+
+    // Kick off plot-size chain in background to pre-warm the cache.
+    // The frontend will call /api/plot-size separately and find a cache HIT
+    // (or a near-HIT depending on timing).
+    getPlotSizeAcres({
+      address: [doorNumber, streetName, postcode].filter(Boolean).join(' '),
+      postcode,
+      streetName,
+      doorNumber,
+      bustCache: !!bustCache,
+    }).catch(() => { /* non-fatal — plot size is optional */ });
 
     // ── Valuation ───────────────────────────────────────────────
     if (valuationResult.status === 'fulfilled') {
@@ -389,18 +396,10 @@ export async function getMarketData(
     }
 
     // ── Success check ───────────────────────────────────────────
-    if (plotSizeResult.status === 'fulfilled') {
-      const ps = plotSizeResult.value;
-      baseResult.data!.ownership.plotSizeAcres = ps.plotSizeAcres;
-      baseResult.data!.ownership.plotSizeMethod = ps.method;
-      baseResult.data!.ownership.plotSizeUprn = ps.uprn;
-      baseResult.data!.ownership.plotSizeTitleNumber = ps.titleNumber;
-    }
-
+    // (plot size is fetched separately via /api/plot-size — not included here)
     const hasSomeData =
       baseResult.data!.valuation.estimate !== null ||
       baseResult.data!.ownership.councilTaxBand !== null ||
-      baseResult.data!.ownership.plotSizeAcres !== null ||
       baseResult.data!.risks.crimeRating !== null ||
       baseResult.data!.risks.floodRisk !== null ||
       baseResult.data!.growth.fiveYear !== null ||

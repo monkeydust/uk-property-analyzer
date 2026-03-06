@@ -20,6 +20,7 @@ model Analysis {
 
 model SavedProperty {
   id            String   @id // Property ID from the scraped data
+  userId        String   @default("admin") // 'admin' or 'demo'
   url           String
   timestamp     DateTime @default(now())
   propertyData  String   // JSON: Property object
@@ -33,4 +34,11 @@ model SavedProperty {
   updatedAt     DateTime @updatedAt
 
   @@index([timestamp])
+  @@index([userId])
+}
+
+// Tracks admin-owned properties hidden from demo's view (soft-delete for demo)
+model DemoHiddenProperty {
+  propertyId String @id // The admin-owned property ID demo has "deleted"
+  createdAt  DateTime @default(now())
 }

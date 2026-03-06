@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Property, AnalysisResponse, AttendedSchoolsResult, MarketDataResult } from '@/lib/types/property';
-import { Bed, Bath, Ruler, Home, MapPin, Copy, Check, ChevronDown, ChevronUp, Loader2, Zap, Train, CircleDot, HelpCircle, Clipboard, X, GraduationCap, Sparkles, FileText, Trash2, Plus, ArrowLeft, RefreshCw, LandPlot, Link } from 'lucide-react';
+import { Bed, Bath, Ruler, Home, MapPin, Copy, Check, ChevronDown, ChevronUp, Loader2, Zap, Train, CircleDot, HelpCircle, Clipboard, X, GraduationCap, Sparkles, FileText, Trash2, Plus, ArrowLeft, RefreshCw, LandPlot, Link, LogOut } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -134,6 +134,11 @@ function HomeContent() {
   const [savedProperties, setSavedProperties] = useState<SavedProperty[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(true);
   const [view, setView] = useState<'dashboard' | 'analysis'>('dashboard');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [apiCredits, setApiCredits] = useState<{
+    propertyData: { creditsRemaining: number | null; creditsUsed: number | null; creditsTotal: number | null } | null;
+    openRouter: { balance: number | null; totalUsage: number | null } | null;
+  } | null>(null);
 
   // Unified Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -244,7 +249,7 @@ function HomeContent() {
     });
   }, []);
 
-  // Load saved properties on mount
+  // Load saved properties and user identity on mount
   useEffect(() => {
     const loadSavedProperties = async () => {
       try {
@@ -255,6 +260,18 @@ function HomeContent() {
       }
     };
     loadSavedProperties();
+
+    // Fetch user identity for demo badge
+    fetch('/api/whoami')
+      .then(r => r.json())
+      .then(data => setUserId(data.userId))
+      .catch(() => setUserId('admin'));
+
+    // Fetch API credit balances for the header indicator
+    fetch('/api/credits')
+      .then(r => r.json())
+      .then(data => setApiCredits(data))
+      .catch(() => { /* non-fatal */ });
   }, []);
 
   // Schools elapsed-time ticker — resets whenever a new scrape starts
@@ -357,6 +374,11 @@ function HomeContent() {
 
   const handleDismissUndo = () => {
     setUndoState({ show: false, deletedProperty: null });
+  };
+
+  const handleLogout = async () => {
+    await fetch('/api/logout', { method: 'POST' });
+    window.location.href = '/login';
   };
 
   const handleNewAnalysis = () => {
@@ -529,6 +551,8 @@ function HomeContent() {
       );
       if ((!existingMarket?.success || isMissingDetailedFields) && result.property.address.postcode) {
         setMarketDataLoading(true);
+        const savedPropId = result.property.id;
+        const savedPropUrl = result.property.sourceUrl;
         fetch('/api/market-data', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -544,14 +568,14 @@ function HomeContent() {
         })
           .then(res => res.json())
           .then((data: MarketDataResult) => {
-            if (activePropertyIdRef.current === result.property.id) {
+            if (activePropertyIdRef.current === savedPropId) {
               setMarketData(data);
               setResult(prev => {
-                if (!prev || prev.property?.id !== result.property.id) return prev;
+                if (!prev || prev.property?.id !== savedPropId) return prev;
                 const merged = { ...prev.property, marketData: data };
                 // Fetch the latest from storage because other parallel requests might have saved data
-                getProperty(result.property.id).then(existingSaved => {
-                  saveProperty(result.property.id, result.property.sourceUrl, {
+                getProperty(savedPropId).then(existingSaved => {
+                  saveProperty(savedPropId, savedPropUrl, {
                     property: merged,
                     schools: existingSaved?.data.schools || schoolsData,
                     aiAnalysis: existingSaved?.data.aiAnalysis || aiAnalysis,
@@ -563,11 +587,80 @@ function HomeContent() {
                 });
                 return { ...prev, property: merged };
               });
+
+              // Fetch plot size separately — market-data no longer includes it
+              const addr = [
+                result.property.address.doorNumber,
+                result.property.address.streetName,
+                result.property.address.postcode,
+              ].filter(Boolean).join(' ');
+              fetch('/api/plot-size', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  address: addr,
+                  postcode: result.property.address.postcode,
+                  doorNumber: result.property.address.doorNumber,
+                  streetName: result.property.address.streetName,
+                  lat: result.property.coordinates?.latitude,
+                  lng: result.property.coordinates?.longitude,
+                }),
+              })
+                .then(r => r.json())
+                .then(ps => {
+                  if (activePropertyIdRef.current !== savedPropId) return;
+                  setMarketData(prev => {
+                    if (!prev?.data) return prev;
+                    return {
+                      ...prev,
+                      data: {
+                        ...prev.data,
+                        ownership: {
+                          ...prev.data.ownership,
+                          plotSizeAcres: ps.plotSizeAcres ?? null,
+                          plotSizeMethod: ps.method ?? null,
+                          plotSizeUprn: ps.uprn ?? null,
+                          plotSizeTitleNumber: ps.titleNumber ?? null,
+                        },
+                      },
+                    };
+                  });
+                  setResult(prev => {
+                    if (!prev || prev.property?.id !== savedPropId) return prev;
+                    const updatedMarket = prev.property.marketData
+                      ? {
+                        ...prev.property.marketData,
+                        data: prev.property.marketData.data ? {
+                          ...prev.property.marketData.data,
+                          ownership: {
+                            ...prev.property.marketData.data.ownership,
+                            plotSizeAcres: ps.plotSizeAcres ?? null,
+                            plotSizeMethod: ps.method ?? null,
+                            plotSizeUprn: ps.uprn ?? null,
+                            plotSizeTitleNumber: ps.titleNumber ?? null,
+                          },
+                        } : prev.property.marketData.data,
+                      }
+                      : prev.property.marketData;
+                    const withPlot = { ...prev.property, marketData: updatedMarket };
+                    getProperty(savedPropId).then(existingSaved => {
+                      saveProperty(savedPropId, savedPropUrl, {
+                        property: withPlot,
+                        schools: existingSaved?.data.schools || schoolsData,
+                        aiAnalysis: existingSaved?.data.aiAnalysis || aiAnalysis,
+                        aiModel: existingSaved?.data.aiModel || aiModel,
+                        commuteTimes: (commuteTimesRef.current ?? []).length > 0 ? commuteTimesRef.current! : existingSaved?.data.commuteTimes || [],
+                      }).then(() => getSavedProperties().then(setSavedProperties));
+                    });
+                    return { ...prev, property: withPlot };
+                  });
+                })
+                .catch(() => { /* plot size is optional */ });
             }
           })
           .catch(() => { })
           .finally(() => {
-            if (activePropertyIdRef.current === result.property.id) {
+            if (activePropertyIdRef.current === savedPropId) {
               setMarketDataLoading(false);
             }
           });
@@ -750,6 +843,77 @@ function HomeContent() {
                 property: merged,
               };
             });
+
+            // Fetch plot size separately — market-data no longer blocks on it.
+            // By now the server's background chain has likely already cached it.
+            const addr = [
+              result.property.address.doorNumber,
+              result.property.address.streetName,
+              result.property.address.postcode,
+            ].filter(Boolean).join(' ');
+            fetch('/api/plot-size', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                address: addr,
+                postcode: result.property.address.postcode,
+                doorNumber: result.property.address.doorNumber,
+                streetName: result.property.address.streetName,
+                lat: result.property.coordinates?.latitude,
+                lng: result.property.coordinates?.longitude,
+                bustCache: shouldBustCache,
+              }),
+            })
+              .then(r => r.json())
+              .then(ps => {
+                if (activePropertyIdRef.current !== propertyId) return;
+                setMarketData(prev => {
+                  if (!prev?.data) return prev;
+                  return {
+                    ...prev,
+                    data: {
+                      ...prev.data,
+                      ownership: {
+                        ...prev.data.ownership,
+                        plotSizeAcres: ps.plotSizeAcres ?? null,
+                        plotSizeMethod: ps.method ?? null,
+                        plotSizeUprn: ps.uprn ?? null,
+                        plotSizeTitleNumber: ps.titleNumber ?? null,
+                      },
+                    },
+                  };
+                });
+                setResult(prev => {
+                  if (!prev || prev.property?.id !== propertyId) return prev;
+                  const updatedMarket = prev.property.marketData
+                    ? {
+                      ...prev.property.marketData,
+                      data: prev.property.marketData.data ? {
+                        ...prev.property.marketData.data,
+                        ownership: {
+                          ...prev.property.marketData.data.ownership,
+                          plotSizeAcres: ps.plotSizeAcres ?? null,
+                          plotSizeMethod: ps.method ?? null,
+                          plotSizeUprn: ps.uprn ?? null,
+                          plotSizeTitleNumber: ps.titleNumber ?? null,
+                        },
+                      } : prev.property.marketData.data,
+                    }
+                    : prev.property.marketData;
+                  const withPlot = { ...prev.property, marketData: updatedMarket };
+                  getProperty(propertyId).then(existingSaved => {
+                    saveProperty(propertyId, propertyUrl, {
+                      property: withPlot,
+                      schools: existingSaved?.data.schools || schoolsData,
+                      aiAnalysis: existingSaved?.data.aiAnalysis || aiAnalysis,
+                      aiModel: existingSaved?.data.aiModel || aiModel,
+                      commuteTimes: (commuteTimesRef.current ?? []).length > 0 ? commuteTimesRef.current! : existingSaved?.data.commuteTimes || [],
+                    }).then(() => getSavedProperties().then(setSavedProperties));
+                  });
+                  return { ...prev, property: withPlot };
+                });
+              })
+              .catch(() => { /* plot size is optional */ });
           }
         })
         .catch(() => {
@@ -1034,8 +1198,14 @@ function HomeContent() {
                 onClick={view === 'analysis' ? handleBackToDashboard : undefined}
                 className={`text-left ${view === 'analysis' ? 'cursor-pointer hover:opacity-80 transition-opacity' : 'cursor-default'}`}
               >
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-slate-100 font-[family-name:var(--font-inter)] truncate tracking-tight">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-slate-100 font-[family-name:var(--font-inter)] truncate tracking-tight flex items-center gap-2 flex-wrap">
                   rightdata<span className="text-teal-500">.uk</span>
+                  <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 tracking-normal leading-none mt-1">v1.01</span>
+                  {userId === 'demo' && (
+                    <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-300 dark:border-amber-700 leading-none mt-1">
+                      DEMO
+                    </span>
+                  )}
                 </h1>
               </button>
             </div>
@@ -1062,12 +1232,45 @@ function HomeContent() {
                 </>
               )}
               <ThemeToggle />
+              <button
+                onClick={handleLogout}
+                className="p-2.5 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
+                title="Log out"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
             </div>
           </div>
-          <p className="text-slate-600 dark:text-slate-400 mt-2 text-sm sm:text-base">
-            {view === 'dashboard'
-              ? `${savedProperties.length} saved propert${savedProperties.length === 1 ? 'y' : 'ies'}`
-              : 'Paste a Rightmove URL to extract and analyze property data'}
+          <p className="text-slate-600 dark:text-slate-400 mt-2 text-sm sm:text-base flex items-center justify-between gap-3 flex-wrap">
+            <span>
+              {view === 'dashboard'
+                ? `${savedProperties.length} saved propert${savedProperties.length === 1 ? 'y' : 'ies'}`
+                : 'Paste a Rightmove URL to extract and analyze property data'}
+            </span>
+            {/* API credit indicators */}
+            {apiCredits && (
+              <span className="flex items-center gap-2 flex-shrink-0">
+                {apiCredits.propertyData?.creditsRemaining != null && (
+                  <span
+                    className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
+                    title={`PropertyData: ${apiCredits.propertyData.creditsRemaining.toLocaleString()} credits remaining${apiCredits.propertyData.creditsTotal ? ` of ${apiCredits.propertyData.creditsTotal.toLocaleString()}` : ''}`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400 flex-shrink-0" />
+                    PD&nbsp;{apiCredits.propertyData.creditsRemaining.toLocaleString()}
+                    <span className="text-slate-400 dark:text-slate-500 font-normal">cr</span>
+                  </span>
+                )}
+                {apiCredits.openRouter?.balance != null && (
+                  <span
+                    className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
+                    title={`OpenRouter: $${apiCredits.openRouter.balance.toFixed(4)} available balance`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-violet-400 flex-shrink-0" />
+                    OR&nbsp;${apiCredits.openRouter.balance.toFixed(2)}
+                  </span>
+                )}
+              </span>
+            )}
           </p>
         </header>
 

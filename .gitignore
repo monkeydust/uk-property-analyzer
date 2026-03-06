@@ -48,3 +48,7 @@ next-env.d.ts
 
 # Locrating debug output (captured HTML + cookies)
 /debug/
+
+# Local dev caches
+.cache/
+tmp/

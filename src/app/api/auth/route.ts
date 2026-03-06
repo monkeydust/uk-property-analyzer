@@ -17,13 +17,12 @@ export async function POST(request: NextRequest) {
       userId = 'demo';
     } else if (password === 'stratgroup' || password === process.env.STRATGROUP_PASSWORD) {
       userId = 'stratgroup';
-      maxAge = 60 * 60 * 24; // strictly 24 hours for cookie
 
-      // Check 24-hour session expiry on the backend
+      // Check if seeded on the backend
       let session = await prisma.stratgroupSession.findUnique({ where: { id: 'stratgroup' } });
 
       if (!session) {
-        // First login! Create session
+        // First login! Create session (used as seed flag)
         session = await prisma.stratgroupSession.create({ data: { id: 'stratgroup' } });
 
         // Seed properties from demo's view
@@ -56,15 +55,6 @@ export async function POST(request: NextRequest) {
               };
             })
           });
-        }
-      } else {
-        // Check if 24 hours have passed since the first login
-        const hoursPassed = (new Date().getTime() - session.startedAt.getTime()) / (1000 * 60 * 60);
-        if (hoursPassed >= 24) {
-          return NextResponse.json(
-            { success: false, error: 'Your 24-hour trial period has expired.' },
-            { status: 403 }
-          );
         }
       }
     }

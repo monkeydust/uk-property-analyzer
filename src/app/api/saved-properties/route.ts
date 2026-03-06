@@ -26,16 +26,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         ...(hiddenIds.size > 0 ? { id: { notIn: [...hiddenIds] } } : {}),
       };
     } else if (userId === 'stratgroup') {
-      const session = await prisma.stratgroupSession.findUnique({ where: { id: 'stratgroup' } });
-      if (session) {
-        const hoursPassed = (new Date().getTime() - session.startedAt.getTime()) / (1000 * 60 * 60);
-        if (hoursPassed >= 24) {
-          return NextResponse.json(
-            { success: false, error: 'Your 24-hour trial period has expired. Please log in again.' },
-            { status: 403 }
-          );
-        }
-      }
       whereClause = { userId: 'stratgroup' };
     } else {
       whereClause = { userId }; // Fallback
@@ -93,13 +83,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Expiry check for stratgroup
-    if (userId === 'stratgroup') {
-      const session = await prisma.stratgroupSession.findUnique({ where: { id: 'stratgroup' } });
-      if (session && (new Date().getTime() - session.startedAt.getTime()) / (1000 * 60 * 60) >= 24) {
-        return NextResponse.json({ success: false, error: 'Trial period has expired.' }, { status: 403 });
-      }
-    }
+
 
     // Upsert the property (create or update) — scoped to this user
     // Provide isolated copies for secondary users

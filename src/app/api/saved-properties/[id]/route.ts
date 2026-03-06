@@ -88,11 +88,6 @@ export async function DELETE(
     }
 
     if (userId === 'stratgroup') {
-      const session = await prisma.stratgroupSession.findUnique({ where: { id: 'stratgroup' } });
-      if (session && (new Date().getTime() - session.startedAt.getTime()) / (1000 * 60 * 60) >= 24) {
-        return NextResponse.json({ success: false, error: 'Trial period has expired.' }, { status: 403 });
-      }
-
       const stratId = `stratgroup__${id}`;
       const stratRow = await prisma.savedProperty.findUnique({ where: { id: stratId } });
 

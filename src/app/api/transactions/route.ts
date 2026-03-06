@@ -14,6 +14,14 @@ export async function GET(request: Request) {
     try {
         const endpointUrl = 'http://landregistry.data.gov.uk/landregistry/query';
 
+        // Detect whether we have a full postcode (e.g. "CO4 5BQ") or only an outward code (e.g. "CO4")
+        const isFullPostcode = postcode.includes(' ');
+
+        // Build the appropriate SPARQL postcode filter
+        const postcodeFilter = isFullPostcode
+            ? `?addr lrcommon:postcode "${postcode}"^^xsd:string .`
+            : `?addr lrcommon:postcode ?pc . FILTER(STRSTARTS(STR(?pc), "${postcode} "))`;
+
         // We fetch a bit further back (10 years) to have a better chance of finding the target property
         // But we will primarily display recent ones
         const sparqlQuery = `
@@ -27,7 +35,7 @@ export async function GET(request: Request) {
                 lrppi:pricePaid ?amount ;
                 lrppi:transactionDate ?date .
         
-        ?addr lrcommon:postcode "${postcode}"^^xsd:string .
+        ${postcodeFilter}
         
         OPTIONAL { ?addr lrcommon:paon ?paon }
         OPTIONAL { ?addr lrcommon:saon ?saon }

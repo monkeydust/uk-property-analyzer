@@ -713,7 +713,10 @@ function HomeContent() {
         const doorNumberQuery = result.property.address.doorNumber
           ? `&doorNumber=${encodeURIComponent(result.property.address.doorNumber)}`
           : '';
-        fetch(`/api/transactions?postcode=${encodeURIComponent(result.property.address.postcode)}${doorNumberQuery}`)
+        const streetNameQuery = result.property.address.streetName
+          ? `&streetName=${encodeURIComponent(result.property.address.streetName)}`
+          : '';
+        fetch(`/api/transactions?postcode=${encodeURIComponent(result.property.address.postcode)}${doorNumberQuery}${streetNameQuery}`)
           .then(res => res.json())
           .then(data => {
             if (activePropertyIdRef.current === savedPropId && data.success) {
@@ -973,8 +976,11 @@ function HomeContent() {
       const doorNumberQuery = result.property.address.doorNumber
         ? `&doorNumber=${encodeURIComponent(result.property.address.doorNumber)}`
         : '';
+      const streetNameQuery = result.property.address.streetName
+        ? `&streetName=${encodeURIComponent(result.property.address.streetName)}`
+        : '';
 
-      fetch(`/api/transactions?postcode=${encodeURIComponent(result.property.address.postcode)}${doorNumberQuery}${shouldBustCache ? '&bustCache=1' : ''}`)
+      fetch(`/api/transactions?postcode=${encodeURIComponent(result.property.address.postcode)}${doorNumberQuery}${streetNameQuery}${shouldBustCache ? '&bustCache=1' : ''}`)
         .then(res => res.json())
         .then(data => {
           if (activePropertyIdRef.current === propertyId && data.success) {

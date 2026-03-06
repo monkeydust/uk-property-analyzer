@@ -6,6 +6,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const postcode = searchParams.get('postcode');
     const doorNumber = searchParams.get('doorNumber');
+    const streetName = searchParams.get('streetName');
 
     if (!postcode) {
         return NextResponse.json({ success: false, error: 'Postcode is required' }, { status: 400 });
@@ -17,10 +18,22 @@ export async function GET(request: Request) {
         // Detect whether we have a full postcode (e.g. "CO4 5BQ") or only an outward code (e.g. "CO4")
         const isFullPostcode = postcode.includes(' ');
 
-        // Build the appropriate SPARQL postcode filter
-        const postcodeFilter = isFullPostcode
-            ? `?addr lrcommon:postcode "${postcode}"^^xsd:string .`
-            : `?addr lrcommon:postcode ?pc . FILTER(STRSTARTS(STR(?pc), "${postcode} "))`;
+        // HMLR SPARQL will timeout if we try to do a STRSTARTS scan across all of the UK
+        // for just an outward postcode. We must either have a full postcode OR a specific street name to index on.
+        if (!isFullPostcode && !streetName) {
+            return NextResponse.json({ success: true, data: [] });
+        }
+
+        // Build the appropriate SPARQL postcode/street filter
+        let locationFilter = '';
+        if (isFullPostcode) {
+            locationFilter = `?addr lrcommon:postcode "${postcode}"^^xsd:string .`;
+        } else if (streetName) {
+            locationFilter = `
+        ?addr lrcommon:street "${streetName.toUpperCase()}"^^xsd:string .
+        ?addr lrcommon:postcode ?pc . 
+        FILTER(STRSTARTS(STR(?pc), "${postcode} "))`;
+        }
 
         // We fetch a bit further back (10 years) to have a better chance of finding the target property
         // But we will primarily display recent ones
@@ -35,7 +48,7 @@ export async function GET(request: Request) {
                 lrppi:pricePaid ?amount ;
                 lrppi:transactionDate ?date .
         
-        ${postcodeFilter}
+        ${locationFilter}
         
         OPTIONAL { ?addr lrcommon:paon ?paon }
         OPTIONAL { ?addr lrcommon:saon ?saon }

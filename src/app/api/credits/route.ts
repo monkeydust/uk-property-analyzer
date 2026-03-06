@@ -33,10 +33,9 @@ async function fetchPropertyDataCredits(): Promise<PropertyDataCredits> {
     const apiKey = process.env.PROPERTYDATA_API_KEY;
     if (!apiKey) return { creditsRemaining: null, creditsUsed: null, creditsTotal: null };
 
-    const res = await fetch('https://api.propertydata.co.uk/account/credits', {
+    const res = await fetch(`https://api.propertydata.co.uk/account/credits?key=${apiKey}`, {
         headers: {
             'Accept': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
         },
         cache: 'no-store',
         signal: AbortSignal.timeout(8000),
@@ -45,9 +44,9 @@ async function fetchPropertyDataCredits(): Promise<PropertyDataCredits> {
     if (!res.ok) return { creditsRemaining: null, creditsUsed: null, creditsTotal: null };
     const data = await res.json();
     return {
-        creditsRemaining: data.credits_remaining ?? null,
-        creditsUsed: data.credits_used ?? null,
-        creditsTotal: data.credits_total ?? null,
+        creditsRemaining: data?.result?.credits_remaining ?? null,
+        creditsUsed: data?.result?.credits_used ?? null,
+        creditsTotal: data?.result?.credits_limit ?? null,
     };
 }
 

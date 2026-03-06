@@ -13,8 +13,9 @@ function formatPropertyResponse(property: {
   ai2Analysis: string | null; ai2Model: string | null;
   commuteTimes: string;
 }) {
+  const cleanId = property.id.replace(/^(demo__|stratgroup__)/, '');
   return {
-    id: property.id,
+    id: cleanId,
     url: property.url,
     timestamp: property.timestamp.getTime(),
     data: {

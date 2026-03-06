@@ -49,20 +49,25 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
     // Parse JSON strings back to objects
-    const formattedProperties = savedProperties.map((prop) => ({
-      id: prop.id,
-      url: prop.url,
-      timestamp: prop.timestamp.getTime(),
-      data: {
-        property: JSON.parse(prop.propertyData),
-        schools: prop.schoolsData ? JSON.parse(prop.schoolsData) : null,
-        aiAnalysis: prop.aiAnalysis,
-        aiModel: prop.aiModel,
-        ai2Analysis: prop.ai2Analysis,
-        ai2Model: prop.ai2Model,
-        commuteTimes: JSON.parse(prop.commuteTimes || '[]'),
-      },
-    }));
+    const formattedProperties = savedProperties.map((prop) => {
+      // Strip namespace prefixes from the ID so the frontend can properly correlate it
+      const cleanId = prop.id.replace(/^(demo__|stratgroup__)/, '');
+
+      return {
+        id: cleanId,
+        url: prop.url,
+        timestamp: prop.timestamp.getTime(),
+        data: {
+          property: JSON.parse(prop.propertyData),
+          schools: prop.schoolsData ? JSON.parse(prop.schoolsData) : null,
+          aiAnalysis: prop.aiAnalysis,
+          aiModel: prop.aiModel,
+          ai2Analysis: prop.ai2Analysis,
+          ai2Model: prop.ai2Model,
+          commuteTimes: JSON.parse(prop.commuteTimes || '[]'),
+        },
+      };
+    });
 
     return NextResponse.json({ success: true, data: formattedProperties });
   } catch (error) {
@@ -132,7 +137,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({
       success: true,
       data: {
-        id: savedProperty.id,
+        id: baseId,
         url: savedProperty.url,
         timestamp: savedProperty.timestamp.getTime(),
       },

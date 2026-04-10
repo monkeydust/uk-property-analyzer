@@ -5,6 +5,7 @@ export interface SavedProperty {
   id: string;
   url: string;
   timestamp: number;
+  isStarred: boolean;
   data: {
     property: Property;
     schools: AttendedSchoolsResult | null;
@@ -103,6 +104,22 @@ export async function restoreProperty(property: SavedProperty): Promise<boolean>
     return await saveProperty(property.id, property.url, property.data);
   } catch (error) {
     console.error('Failed to restore property:', error);
+    return false;
+  }
+}
+
+export async function starProperty(id: string, starred: boolean): Promise<boolean> {
+  try {
+    const response = await fetch(`/api/saved-properties/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isStarred: starred }),
+    });
+    if (!response.ok) throw new Error('Failed to update star');
+    const result = await response.json();
+    return result.success === true;
+  } catch (error) {
+    console.error('Failed to star property:', error);
     return false;
   }
 }

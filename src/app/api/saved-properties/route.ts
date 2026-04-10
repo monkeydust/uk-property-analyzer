@@ -47,6 +47,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         id: cleanId,
         url: prop.url,
         timestamp: prop.timestamp.getTime(),
+        isStarred: prop.isStarred,
         data: {
           property: JSON.parse(prop.propertyData),
           schools: prop.schoolsData ? JSON.parse(prop.schoolsData) : null,

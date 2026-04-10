@@ -11,13 +11,14 @@ function formatPropertyResponse(property: {
   propertyData: string; schoolsData: string | null;
   aiAnalysis: string | null; aiModel: string | null;
   ai2Analysis: string | null; ai2Model: string | null;
-  commuteTimes: string;
+  commuteTimes: string; isStarred: boolean;
 }) {
   const cleanId = property.id.replace(/^(demo__|stratgroup__)/, '');
   return {
     id: cleanId,
     url: property.url,
     timestamp: property.timestamp.getTime(),
+    isStarred: property.isStarred,
     data: {
       property: JSON.parse(property.propertyData),
       schools: property.schoolsData ? JSON.parse(property.schoolsData) : null,
@@ -118,6 +119,44 @@ export async function DELETE(
     console.error('Failed to delete property:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to delete property' },
+      { status: 500 }
+    );
+  }
+}
+
+// PATCH /api/saved-properties/[id] - Toggle starred state
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  try {
+    const { id } = await params;
+    const userId = getUserId(request);
+    const body = await request.json();
+    const { isStarred } = body;
+
+    if (typeof isStarred !== 'boolean') {
+      return NextResponse.json(
+        { success: false, error: 'isStarred must be a boolean' },
+        { status: 400 }
+      );
+    }
+
+    // Resolve the actual DB row ID (user-scoped)
+    let dbId = id;
+    if (userId === 'demo') dbId = `demo__${id}`;
+    else if (userId === 'stratgroup') dbId = `stratgroup__${id}`;
+
+    const updated = await prisma.savedProperty.update({
+      where: { id: dbId },
+      data: { isStarred },
+    });
+
+    return NextResponse.json({ success: true, data: formatPropertyResponse(updated) });
+  } catch (error) {
+    console.error('Failed to update star:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to update star' },
       { status: 500 }
     );
   }

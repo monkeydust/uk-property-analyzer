@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Property, AnalysisResponse, AttendedSchoolsResult, MarketDataResult } from '@/lib/types/property';
-import { Bed, Bath, Ruler, Home, MapPin, Copy, Check, ChevronDown, ChevronUp, Loader2, Zap, Train, CircleDot, HelpCircle, Clipboard, X, GraduationCap, Sparkles, FileText, Trash2, Plus, ArrowLeft, RefreshCw, LandPlot, Link, LogOut } from 'lucide-react';
+import { Bed, Bath, Ruler, Home, MapPin, Copy, Check, ChevronDown, ChevronUp, Loader2, Zap, Train, CircleDot, HelpCircle, Clipboard, X, GraduationCap, Sparkles, FileText, Trash2, Plus, ArrowLeft, RefreshCw, LandPlot, Link, LogOut, Star, Search } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -11,7 +11,7 @@ import { PropertyCard } from '@/components/PropertyCard';
 import { UndoToast } from '@/components/UndoToast';
 import { MarketInsightsCard } from '@/components/MarketInsightsCard';
 import { MarketInsightsSkeleton } from '@/components/MarketInsightsSkeleton';
-import { getSavedProperties, saveProperty, deleteProperty, restoreProperty, getProperty } from '@/lib/storage';
+import { getSavedProperties, saveProperty, deleteProperty, restoreProperty, getProperty, starProperty } from '@/lib/storage';
 import type { SavedProperty } from '@/lib/storage';
 
 // EPC rating colors (A=dark green, G=red)
@@ -133,6 +133,8 @@ function HomeContent() {
   // Saved properties state
   const [savedProperties, setSavedProperties] = useState<SavedProperty[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(true);
+  const [filterMode, setFilterMode] = useState<'all' | 'starred'>('all');
+  const [dashboardSearch, setDashboardSearch] = useState('');
   const [view, setView] = useState<'dashboard' | 'analysis'>('dashboard');
   const [userId, setUserId] = useState<string | null>(null);
   const [apiCredits, setApiCredits] = useState<{
@@ -360,6 +362,22 @@ function HomeContent() {
     if (deleted) {
       setSavedProperties(prev => prev.filter(p => p.id !== property.id));
       setUndoState({ show: true, deletedProperty: deleted });
+    }
+  };
+
+  const handleStarProperty = async (e: React.MouseEvent, property: SavedProperty) => {
+    e.stopPropagation();
+    const newStarred = !property.isStarred;
+    // Optimistic update
+    setSavedProperties(prev =>
+      prev.map(p => p.id === property.id ? { ...p, isStarred: newStarred } : p)
+    );
+    const ok = await starProperty(property.id, newStarred);
+    if (!ok) {
+      // Revert on failure
+      setSavedProperties(prev =>
+        prev.map(p => p.id === property.id ? { ...p, isStarred: property.isStarred } : p)
+      );
     }
   };
 
@@ -1331,14 +1349,139 @@ function HomeContent() {
             </button>
             {savedProperties.length > 0 ? (
               <div className="space-y-3">
-                {savedProperties.map((savedProp) => (
-                  <PropertyCard
-                    key={savedProp.id}
-                    property={savedProp}
-                    onClick={() => handlePropertyClick(savedProp)}
-                    onDelete={(e) => handleDeleteProperty(e, savedProp)}
-                  />
-                ))}
+                {/* Filter toolbar + search */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Filter pills */}
+                  <button
+                    onClick={() => setFilterMode('all')}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                      filterMode === 'all'
+                        ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900'
+                        : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    All ({savedProperties.length})
+                  </button>
+                  <button
+                    onClick={() => setFilterMode('starred')}
+                    className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                      filterMode === 'starred'
+                        ? 'bg-amber-400 text-white'
+                        : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-900/20 dark:hover:text-amber-400'
+                    }`}
+                  >
+                    <Star className={`w-3 h-3 ${filterMode === 'starred' ? 'fill-white' : ''}`} />
+                    Shortlisted ({savedProperties.filter(p => p.isStarred).length})
+                  </button>
+
+                  {/* Full-text search */}
+                  <div className="relative flex-1 min-w-[180px]">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={dashboardSearch}
+                      onChange={e => setDashboardSearch(e.target.value)}
+                      placeholder='Search… e.g. CO4* detached -leasehold "4 bed"'
+                      className="w-full pl-7 pr-7 py-1.5 text-xs rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-colors"
+                    />
+                    {dashboardSearch && (
+                      <button
+                        onClick={() => setDashboardSearch('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Property list — apply star filter + search */}
+                {(() => {
+                  // 1. Star filter
+                  let visible = filterMode === 'starred'
+                    ? savedProperties.filter(p => p.isStarred)
+                    : savedProperties;
+
+                  // 2. Full-JSON text search (AND logic, quoted phrases, -exclusions, * and ? wildcards)
+                  if (dashboardSearch.trim()) {
+                    const raw = dashboardSearch.trim();
+                    // Tokenise: extract quoted phrases first, then individual words
+                    const tokens: Array<{ text: string; exclude: boolean; isPhrase: boolean }> = [];
+                    const phraseRe = /(-?)"([^"]+)"/g;
+                    let cleaned = raw;
+                    let m;
+                    while ((m = phraseRe.exec(raw)) !== null) {
+                      tokens.push({ text: m[2], exclude: m[1] === '-', isPhrase: true });
+                      cleaned = cleaned.replace(m[0], '');
+                    }
+                    cleaned.trim().split(/\s+/).filter(Boolean).forEach(w => {
+                      if (w.startsWith('-') && w.length > 1) {
+                        tokens.push({ text: w.slice(1), exclude: true, isPhrase: false });
+                      } else {
+                        tokens.push({ text: w, exclude: false, isPhrase: false });
+                      }
+                    });
+
+                    // Build a matcher for each token (wildcard-aware)
+                    const makeMatch = (text: string, isPhrase: boolean) => {
+                      const lower = text.toLowerCase();
+                      // Wildcards only in non-phrase tokens, and only if * or ? present
+                      if (!isPhrase && (lower.includes('*') || lower.includes('?'))) {
+                        // Escape regex special chars except * and ?
+                        const pattern = lower
+                          .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+                          .replace(/\*/g, '.*')
+                          .replace(/\?/g, '.');
+                        const re = new RegExp(pattern);
+                        return (haystack: string) => re.test(haystack);
+                      }
+                      return (haystack: string) => haystack.includes(lower);
+                    };
+
+                    const matchers = tokens.map(tok => ({
+                      match: makeMatch(tok.text, tok.isPhrase),
+                      exclude: tok.exclude,
+                    }));
+
+                    visible = visible.filter(prop => {
+                      const haystack = JSON.stringify(prop).toLowerCase();
+                      return matchers.every(({ match, exclude }) => {
+                        const hit = match(haystack);
+                        return exclude ? !hit : hit;
+                      });
+                    });
+                  }
+
+                  if (visible.length === 0) {
+                    return (
+                      <div className="text-center py-10">
+                        {filterMode === 'starred' && !dashboardSearch ? (
+                          <>
+                            <Star className="w-10 h-10 text-amber-300 mx-auto mb-3" />
+                            <p className="text-slate-500 dark:text-slate-400 text-sm">No shortlisted properties yet</p>
+                            <p className="text-slate-400 dark:text-slate-500 text-xs mt-1">Tap the ⭐ on any card to add it</p>
+                          </>
+                        ) : (
+                          <>
+                            <Search className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                            <p className="text-slate-500 dark:text-slate-400 text-sm">No properties match your search</p>
+                            <button onClick={() => { setDashboardSearch(''); }} className="text-xs text-teal-500 hover:underline mt-1">Clear search</button>
+                          </>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return visible.map(savedProp => (
+                    <PropertyCard
+                      key={savedProp.id}
+                      property={savedProp}
+                      onClick={() => handlePropertyClick(savedProp)}
+                      onDelete={(e) => handleDeleteProperty(e, savedProp)}
+                      onStar={(e) => handleStarProperty(e, savedProp)}
+                    />
+                  ));
+                })()}
               </div>
             ) : propertiesLoading ? (
               // Skeleton cards shown while fetching from DB on mount

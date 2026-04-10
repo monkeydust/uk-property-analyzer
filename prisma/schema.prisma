@@ -30,6 +30,7 @@ model SavedProperty {
   ai2Analysis   String?  // Second AI analysis (optional)
   ai2Model      String?  // Second AI model used (optional)
   commuteTimes  String   // JSON array
+  isStarred     Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

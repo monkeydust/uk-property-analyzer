@@ -27,7 +27,11 @@ docker-compose --env-file .env.prod up -d
 
 ## Deploying an Update
 
-SSH into the server (password: ask the user):
+> ⚠️ **Before SSHing: ask the user for the SSH password.** The server uses password authentication — SSH will hang silently without it. Do not attempt `ssh root@89.167.62.131` until you have the password confirmed from the user.
+
+> 💡 **Alternative:** If `run_command` can't allocate a TTY (password prompt hangs), use the Node.js deploy script at `tmp/deploy.js` which uses the `ssh2` library for programmatic SSH: `node tmp/deploy.js` (from the project root). Update the password in the script before running.
+
+SSH into the server:
 ```bash
 ssh root@89.167.62.131
 ```

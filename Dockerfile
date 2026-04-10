@@ -34,9 +34,9 @@ ENV NODE_ENV=production
 # Expose port 3000
 EXPOSE 3000
 
-# Copy and prepare startup script
+# Copy and prepare startup script (fix Windows CRLF -> LF)
 COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 # Start: sync DB schema, launch Next.js, warm up key routes in background
 CMD ["/app/start.sh"]

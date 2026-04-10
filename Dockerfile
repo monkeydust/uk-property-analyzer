@@ -34,5 +34,9 @@ ENV NODE_ENV=production
 # Expose port 3000
 EXPOSE 3000
 
-# Start script: push db schema, then start Next app
-CMD npx prisma db push --accept-data-loss && npm run start
+# Copy and prepare startup script
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+# Start: sync DB schema, launch Next.js, warm up key routes in background
+CMD ["/app/start.sh"]

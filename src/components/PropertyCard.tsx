@@ -54,9 +54,20 @@ export function PropertyCard({ property, onClick, onDelete, onStar }: PropertyCa
         <p className="text-slate-600 dark:text-slate-400 font-medium text-sm">
           {priceText}
         </p>
-        <p className="text-slate-400 dark:text-slate-500 text-xs mt-0.5">
-          Saved {formatTimeAgo(timestamp)}
-        </p>
+        <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+          <span>Saved {formatTimeAgo(timestamp)}</span>
+          {data.commuteTimes && data.commuteTimes.length > 0 && (
+            <>
+              <span className="text-slate-300 dark:text-slate-700">·</span>
+              {data.commuteTimes.map((c) => (
+                <span key={c.destination} className="inline-flex items-center gap-0.5" title={`${c.destination}: ${c.durationText}`}>
+                  {c.destination === 'Bloomberg' ? '💼' : '🎓'}
+                  <span className="font-medium text-slate-500 dark:text-slate-400">{c.durationText}</span>
+                </span>
+              ))}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Action Buttons */}

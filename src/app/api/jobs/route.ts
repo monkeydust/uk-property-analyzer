@@ -35,24 +35,43 @@ export async function POST(request: NextRequest) {
 
     const normUrl = normalizeUrl(url);
 
-    // Check for existing active job on the same URL (unless bustCache forces a new run)
+    // BUG FIX (Bug 7): Always check for in-flight jobs, even with bustCache
+    // Prevents concurrent pipelines racing to upsert the same SavedProperty
+    const existingJobs = await prisma.analysisJob.findMany({
+      where: {
+        userId,
+        status: { notIn: ['complete', 'error'] },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const activeForUrl = existingJobs.find((j) => normalizeUrl(j.url) === normUrl);
+    if (activeForUrl) {
+      logger.info(`[JOB ${activeForUrl.id}] Returning existing active job for ${url}`, 'jobs');
+      return NextResponse.json({
+        success: true,
+        jobId: activeForUrl.id,
+        status: activeForUrl.status,
+        existing: true,
+      });
+    }
+
+    // BUG FIX (Bug 2): If not bustCache, check if a SavedProperty already exists
+    // This prevents test packs and accidental resubmissions from creating ghost jobs
     if (!bustCache) {
-      const existingJobs = await prisma.analysisJob.findMany({
-        where: {
-          userId,
-          status: { notIn: ['complete', 'error'] },
-        },
-        orderBy: { createdAt: 'desc' },
+      const allSaved = await prisma.savedProperty.findMany({
+        where: { userId },
+        select: { id: true, url: true },
       });
 
-      const activeForUrl = existingJobs.find((j) => normalizeUrl(j.url) === normUrl);
-      if (activeForUrl) {
-        logger.info(`[JOB ${activeForUrl.id}] Returning existing active job for ${url}`, 'jobs');
+      const existingSaved = allSaved.find((s) => normalizeUrl(s.url) === normUrl);
+      if (existingSaved) {
+        logger.info(`[JOBS] SavedProperty already exists for ${url} (id: ${existingSaved.id}), skipping job`, 'jobs');
         return NextResponse.json({
           success: true,
-          jobId: activeForUrl.id,
-          status: activeForUrl.status,
           existing: true,
+          savedPropertyId: existingSaved.id,
+          status: 'complete',
         });
       }
     }

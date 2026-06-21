@@ -423,26 +423,38 @@ function HomeContent() {
   }, []);
 
   // Poll saved properties when on dashboard and there are active jobs running
+  // BUG FIX: Use a ref to track active jobs instead of savedProperties in deps
+  // to prevent infinite re-render loop (each poll creates new array → triggers effect)
+  const hasActiveJobsRef = useRef(false);
   useEffect(() => {
-    if (view !== 'dashboard') return;
-
-    const hasActiveJobs = savedProperties.some(
+    hasActiveJobsRef.current = savedProperties.some(
       (p) => p.status && p.status !== 'complete' && p.status !== 'error'
     );
+  }, [savedProperties]);
 
-    if (!hasActiveJobs) return;
+  useEffect(() => {
+    if (view !== 'dashboard') return;
+    if (!hasActiveJobsRef.current) return;
 
     const interval = setInterval(async () => {
       try {
         const properties = await getSavedProperties();
         setSavedProperties(properties);
-      } catch (e) {
+        // Update ref so interval self-stops when jobs complete
+        const stillActive = properties.some(
+          (p: SavedProperty) => p.status && p.status !== 'complete' && p.status !== 'error'
+        );
+        if (!stillActive) {
+          hasActiveJobsRef.current = false;
+          clearInterval(interval);
+        }
+      } catch {
         // ignore
       }
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [view, savedProperties]);
+  }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Schools elapsed-time ticker — resets whenever a new scrape starts
   useEffect(() => {
@@ -712,6 +724,19 @@ function HomeContent() {
 
       // Clear search query
       setSearchQuery('');
+
+      // If server says a SavedProperty already exists (no job needed), open it directly
+      if (data.existing && data.status === 'complete' && data.savedPropertyId) {
+        setLoading(false);
+        // Refresh the saved properties list and open the existing one
+        const properties = await getSavedProperties();
+        setSavedProperties(properties);
+        const existingProp = properties.find((p: SavedProperty) => p.id === data.savedPropertyId);
+        if (existingProp) {
+          handlePropertyClick(existingProp);
+        }
+        return;
+      }
 
       // Redirect to dashboard so the card is visible instantly
       setView('dashboard');
@@ -1475,7 +1500,7 @@ function HomeContent() {
               >
                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-slate-100 font-[family-name:var(--font-inter)] truncate tracking-tight flex items-center gap-2 flex-wrap">
                   rightdata<span className="text-teal-500">.uk</span>
-                  <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 tracking-normal leading-none mt-1">v1.02</span>
+                  <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 tracking-normal leading-none mt-1">v1.03</span>
                   {userId === 'demo' && (
                     <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-300 dark:border-amber-700 leading-none mt-1">
                       DEMO

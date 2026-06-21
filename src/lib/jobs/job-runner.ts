@@ -313,6 +313,7 @@ export async function runJob(jobId: string, bustCache = false): Promise<void> {
     // ════════════════════════════════════════════════
     // PHASE 4: Save to SavedProperty + mark complete
     // ════════════════════════════════════════════════
+    let saveOk = false;
     try {
       const finalJob = await prisma.analysisJob.findUnique({ where: { id: jobId } });
       if (finalJob && finalJob.propertyId) {
@@ -353,6 +354,29 @@ export async function runJob(jobId: string, bustCache = false): Promise<void> {
           } catch { /* ignore */ }
         }
 
+        // BUG FIX: Extract commuteTimes ARRAY from the raw API response wrapper
+        // The commuteData column stores {"success":true,"commuteTimes":[...]}
+        // but the commuteTimes column on SavedProperty should store just the array
+        let commuteTimesArray = '[]';
+        if (finalJob.commuteData) {
+          try {
+            const parsed = JSON.parse(finalJob.commuteData);
+            commuteTimesArray = JSON.stringify(parsed.commuteTimes || []);
+          } catch { /* ignore */ }
+        }
+
+        // BUG FIX: Build conditional update — only update fields the job has data for
+        // This prevents overwriting good saved data with nulls if some steps failed
+        const updateFields: Record<string, unknown> = { updatedAt: new Date() };
+        // Always update propertyData (it's rebuilt from the job's enrichment)
+        updateFields.propertyData = JSON.stringify(propData);
+        if (finalJob.schoolsData) updateFields.schoolsData = finalJob.schoolsData;
+        if (finalJob.aiAnalysis) {
+          updateFields.aiAnalysis = finalJob.aiAnalysis;
+          updateFields.aiModel = finalJob.aiModel;
+        }
+        if (finalJob.commuteData) updateFields.commuteTimes = commuteTimesArray;
+
         await prisma.savedProperty.upsert({
           where: { id: finalJob.propertyId },
           create: {
@@ -363,25 +387,32 @@ export async function runJob(jobId: string, bustCache = false): Promise<void> {
             schoolsData: finalJob.schoolsData || null,
             aiAnalysis: finalJob.aiAnalysis || null,
             aiModel: finalJob.aiModel || null,
-            commuteTimes: finalJob.commuteData || '[]',
+            commuteTimes: commuteTimesArray,
           },
-          update: {
-            propertyData: JSON.stringify(propData),
-            schoolsData: finalJob.schoolsData || undefined,
-            aiAnalysis: finalJob.aiAnalysis || undefined,
-            aiModel: finalJob.aiModel || undefined,
-            commuteTimes: finalJob.commuteData || undefined,
-            updatedAt: new Date(),
-          },
+          update: updateFields,
         });
         logger.info(`[JOB ${jobId}] Saved to SavedProperty`, 'job-runner');
+        saveOk = true;
+
+        // BUG FIX: Delete completed job rows to prevent pile-up and stale ghost jobs
+        try {
+          await prisma.analysisJob.delete({ where: { id: jobId } });
+          logger.info(`[JOB ${jobId}] Cleaned up AnalysisJob row`, 'job-runner');
+        } catch { /* ignore — row may already be gone */ }
       }
     } catch (e) {
-      logger.warn(`[JOB ${jobId}] Save error: ${e instanceof Error ? e.message : e}`, 'job-runner');
+      // BUG FIX: If save failed, mark as error instead of silently completing
+      logger.error(`[JOB ${jobId}] Save to SavedProperty FAILED: ${e instanceof Error ? e.message : e}`, 'job-runner');
     }
 
-    await updateJob(jobId, { status: 'complete' });
-    logger.info(`[JOB ${jobId}] ✅ Pipeline complete`, 'job-runner');
+    if (saveOk) {
+      // Job row was deleted above, no need to update status
+      logger.info(`[JOB ${jobId}] ✅ Pipeline complete`, 'job-runner');
+    } else {
+      // Save failed — mark job as error so it shows on dashboard
+      await updateJob(jobId, { status: 'error', error: 'Failed to save results — please retry' });
+      logger.error(`[JOB ${jobId}] ❌ Pipeline failed: could not persist results`, 'job-runner');
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     await updateJob(jobId, { status: 'error', error: msg });

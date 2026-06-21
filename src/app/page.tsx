@@ -10,6 +10,8 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { PropertyCard } from '@/components/PropertyCard';
 import { UndoToast } from '@/components/UndoToast';
 import { MarketInsightsCard } from '@/components/MarketInsightsCard';
+import JobProgress from '@/components/JobProgress';
+import type { JobProgressProps } from '@/components/JobProgress';
 import { MarketInsightsSkeleton } from '@/components/MarketInsightsSkeleton';
 import { getSavedProperties, saveProperty, deleteProperty, restoreProperty, getProperty, starProperty } from '@/lib/storage';
 import type { SavedProperty } from '@/lib/storage';
@@ -239,6 +241,15 @@ function HomeContent() {
   const [logsExpanded, setLogsExpanded] = useState(false);
   const [logs, setLogs] = useState<{ id: string; timestamp: string; level: string; message: string; source?: string }[]>([]);
 
+  // ═══════════════════════════════════════════════════════════
+  // Server-side job system state
+  // ═══════════════════════════════════════════════════════════
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [jobProgress, setJobProgress] = useState<JobProgressProps>({
+    status: 'queued',
+  });
+  const jobPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Merge new logs into state, deduplicating by id, sorted newest first
   const mergeLogs = useCallback((newLogs: { id: string; timestamp: string; level: string; message: string; source?: string }[]) => {
     if (!newLogs || newLogs.length === 0) return;
@@ -249,6 +260,142 @@ function HomeContent() {
       return [...unique, ...prev].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     });
   }, []);
+
+  // ═══════════════════════════════════════════════════════════
+  // Job polling effect — maps server job data → existing UI state
+  // ═══════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (!activeJobId) return;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/jobs/${activeJobId}`);
+        const job = await res.json();
+        if (!job.success) return;
+
+        // Update progress UI
+        setJobProgress({
+          status: job.status,
+          propertyData: !!job.propertyData,
+          schoolsData: !!job.schoolsData,
+          marketData: !!job.marketData,
+          stationsData: !!job.stationsData,
+          commuteData: !!job.commuteData,
+          transactionsData: !!job.transactionsData,
+          plotSizeData: !!job.plotSizeData,
+          aiAnalysis: !!job.aiAnalysis,
+          error: job.error,
+        });
+
+        // Map property data → result state (only first time)
+        if (job.propertyData && !result) {
+          const prop = job.propertyData as Property;
+          activePropertyIdRef.current = prop.id;
+          setResult({ property: prop, postcode: prop.address?.postcode || null });
+          setLoading(false);
+        }
+
+        // Map enrichment data → existing state variables (progressively)
+        if (job.propertyData) {
+          const prop = job.propertyData as Property;
+
+          // Schools
+          if (job.schoolsData && !schoolsData) {
+            setSchoolsData(job.schoolsData as AttendedSchoolsResult);
+            setSchoolsLoading(false);
+          }
+
+          // Market data
+          if (job.marketData && !marketData) {
+            setMarketData(job.marketData as MarketDataResult);
+            setMarketDataLoading(false);
+            // Update result with market data
+            setResult(prev => {
+              if (!prev) return prev;
+              return { ...prev, property: { ...prev.property, marketData: job.marketData } };
+            });
+          }
+
+          // Stations
+          if (job.stationsData) {
+            setResult(prev => {
+              if (!prev) return prev;
+              const stData = job.stationsData;
+              return { ...prev, property: { ...prev.property, nearestStations: stData?.nearestStations, nearestTubeStations: stData?.nearestTubeStations } };
+            });
+            setStationsLoading(false);
+          }
+
+          // Commute
+          if (job.commuteData) {
+            const cData = job.commuteData;
+            commuteTimesRef.current = cData?.commuteTimes || [];
+            setResult(prev => {
+              if (!prev) return prev;
+              return { ...prev, property: { ...prev.property, commuteTimes: cData?.commuteTimes } };
+            });
+            setCommuteLoading(false);
+          }
+
+          // Transactions
+          if (job.transactionsData) {
+            setResult(prev => {
+              if (!prev) return prev;
+              const tData = job.transactionsData;
+              return { ...prev, property: { ...prev.property, transactions: tData?.data || tData } };
+            });
+            setTransactionsLoading(false); // eslint-disable-line @typescript-eslint/no-unused-vars
+          }
+
+          // Plot size — merge into marketData if available
+          if (job.plotSizeData && job.marketData) {
+            setResult(prev => {
+              if (!prev || !prev.property.marketData?.data) return prev;
+              const updatedMarketData = JSON.parse(JSON.stringify(prev.property.marketData)) as MarketDataResult;
+              if (updatedMarketData.data) {
+                (updatedMarketData.data as Record<string, unknown>).plotSize = job.plotSizeData;
+              }
+              return { ...prev, property: { ...prev.property, marketData: updatedMarketData } };
+            });
+          }
+
+          // AI analysis
+          if (job.aiAnalysis) {
+            setAiAnalysis(job.aiAnalysis);
+            setAiModel(job.aiModel || null);
+            setAiLoading(false);
+            // Mark AI as fired so old useEffect doesn't re-trigger
+            aiFiredForPropertyRef.current = prop.id;
+          }
+        }
+
+        // Stop polling when complete or error
+        if (job.status === 'complete' || job.status === 'error') {
+          if (jobPollingRef.current) {
+            clearInterval(jobPollingRef.current);
+            jobPollingRef.current = null;
+          }
+          // Refresh saved properties list
+          getSavedProperties().then(setSavedProperties);
+          // Clear active job after a delay
+          setTimeout(() => setActiveJobId(null), 5000);
+        }
+      } catch {
+        // Silently retry on next poll
+      }
+    };
+
+    // Poll immediately, then every 3 seconds
+    poll();
+    jobPollingRef.current = setInterval(poll, 3000);
+
+    return () => {
+      if (jobPollingRef.current) {
+        clearInterval(jobPollingRef.current);
+        jobPollingRef.current = null;
+      }
+    };
+  }, [activeJobId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load saved properties and user identity on mount
   useEffect(() => {
@@ -472,51 +619,40 @@ function HomeContent() {
     setAiAnalysis(null);
     setAiError(null);
     setAiLoading(false);
+    setMarketData(null);
     setLoading(true);
 
+    // Set all enrichment loading states
+    setSchoolsLoading(true);
+    setMarketDataLoading(true);
+    setStationsLoading(true);
+    setCommuteLoading(true);
+    setTransactionsLoading(true);
+
     try {
-      const response = await fetch('/api/analyze', {
+      // Create a server-side job — the server handles the entire pipeline
+      const response = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlToSubmit, bustCache }),
+        body: JSON.stringify({ url: urlToSubmit }),
       });
 
-      const data: AnalysisResponse = await response.json();
+      const data = await response.json();
 
-      if (data.logs) mergeLogs(data.logs);
-
-      if (!data.success || !data.data) {
-        setError(data.error || 'Failed to analyze property');
+      if (!data.success) {
+        setError(data.error || 'Failed to create analysis job');
+        setLoading(false);
         return;
       }
 
-      // 1. Mark as current and initial save (so it shows up on dashboard immediately)
-      const property = data.data.property;
-      activePropertyIdRef.current = property.id;
-      // Reset commute times ref for new property search
-      commuteTimesRef.current = [];
-
-      saveProperty(property.id, property.sourceUrl, {
-        property,
-        schools: null,
-        aiAnalysis: null,
-        aiModel: null,
-        commuteTimes: commuteTimesRef.current,
-      }).then(() => {
-        getSavedProperties().then(setSavedProperties);
-      });
-
-      // 2. Update UI
-      setResult({
-        property: data.data.property,
-        postcode: data.data.postcode,
-      });
+      // Start polling for this job — the polling effect handles everything
+      setJobProgress({ status: 'queued' });
+      setActiveJobId(data.jobId);
     } catch {
       setError('Network error - please try again');
-    } finally {
       setLoading(false);
     }
-  }, [mergeLogs]);
+  }, []);
 
   // Unified submission handler
   const handleSubmit = useCallback((e?: React.FormEvent) => {
@@ -555,6 +691,9 @@ function HomeContent() {
       setSchoolsError(null);
       return;
     }
+
+    // Skip client-side enrichment when server job is handling it
+    if (activeJobId) return;
 
     // Skip re-fetching if loaded from a saved property
     if (loadedFromSaveRef.current) {
@@ -1124,6 +1263,8 @@ function HomeContent() {
 
   // Fetch AI analyses when property + all other data are ready
   useEffect(() => {
+    // Skip client-side AI when server job is handling it
+    if (activeJobId) return;
     if (!result || schoolsLoading || marketDataLoading || stationsLoading || commuteLoading || transactionsLoading) return;
     if (!schoolsData && !schoolsError) return;
 
@@ -1609,6 +1750,11 @@ function HomeContent() {
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl shadow-sm">
                 <p className="text-red-700">{error}</p>
               </div>
+            )}
+
+            {/* Job Progress Stepper */}
+            {activeJobId && (
+              <JobProgress {...jobProgress} />
             )}
 
             {/* Results */}

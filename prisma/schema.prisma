@@ -49,3 +49,30 @@ model StratgroupSession {
   id        String   @id @default("stratgroup")
   startedAt DateTime @default(now())
 }
+
+// Server-side analysis job — tracks pipeline progress independently of browser session
+model AnalysisJob {
+  id            String   @id @default(cuid())
+  userId        String   @default("admin")
+  url           String
+  propertyId    String?  // Set once scrape completes
+  status        String   @default("queued") // queued | scraping | enriching | analyzing | complete | error
+  error         String?
+
+  // Results stored as JSON strings (populated as each step completes)
+  propertyData     String?  // From analyze
+  schoolsData      String?  // From schools
+  marketData       String?  // From market-data
+  plotSizeData      String?  // From plot-size
+  transactionsData String?  // From transactions
+  stationsData     String?  // From stations
+  commuteData      String?  // From commute
+  aiAnalysis       String?  // From ai-analysis
+  aiModel          String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}

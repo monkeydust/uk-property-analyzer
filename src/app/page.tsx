@@ -2169,7 +2169,7 @@ function HomeContent() {
                         <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Commute Times</h2>
                       </div>
                       {!commuteLoading && result.property.commuteTimes && result.property.commuteTimes.length > 0 && (
-                        <span className="text-xs text-slate-400">Wed 6:40 AM departure</span>
+                        <span className="text-xs text-slate-400">Walk · Tube · Train · Wed 6:40 AM</span>
                       )}
                     </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { Trash2, Star } from 'lucide-react';
+import { Trash2, Star, Home } from 'lucide-react';
 import { SavedProperty, formatTimeAgo } from '@/lib/storage';
 
 interface PropertyCardProps {
@@ -21,16 +21,25 @@ const getProgressPercent = (status: string) => {
 };
 
 export function PropertyCard({ property, onClick, onDelete, onStar }: PropertyCardProps) {
-  const { data, timestamp, isStarred, status, error, jobId } = property;
+  const { data, timestamp, isStarred, status, error } = property;
   const { property: propData } = data;
 
-  // Get first image or placeholder based on type
-  const imageUrl = propData.images?.[0] || (propData.listingType === 'off-market' ? '/images/off_market.png' : '/placeholder-property.jpg');
+  const isActive = !!status && status !== 'complete' && status !== 'error';
+  const hasRealImages = propData.images && propData.images.length > 0 && !propData.images[0].startsWith('data:');
+  const hasRealAddress = propData.address?.displayAddress && !propData.address.displayAddress.startsWith('http');
+
+  // Get first image or contextual placeholder
+  const imageUrl = hasRealImages
+    ? propData.images[0]
+    : (propData.listingType === 'off-market' ? '/images/off_market.png' : null);
 
   // Format price
   const priceText = propData.price
     ? `£${propData.price.toLocaleString()}`
     : 'Price N/A';
+
+  // Commute times — available for both completed and in-progress cards
+  const commuteTimes = data.commuteTimes && data.commuteTimes.length > 0 ? data.commuteTimes : null;
 
   const getStatusBadge = () => {
     if (!status) return null;
@@ -72,12 +81,19 @@ export function PropertyCard({ property, onClick, onDelete, onStar }: PropertyCa
     >
       {/* Thumbnail */}
       <div className="flex-shrink-0 w-[120px] h-[84px] rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 relative">
-        <img
-          src={imageUrl}
-          alt={propData.address.displayAddress}
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={propData.address.displayAddress}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          /* Gradient placeholder with animated icon for in-progress or missing images */
+          <div className="w-full h-full bg-gradient-to-br from-teal-100 via-slate-100 to-sky-100 dark:from-teal-900/40 dark:via-slate-800 dark:to-sky-900/40 flex items-center justify-center">
+            <Home className={`w-8 h-8 text-teal-300 dark:text-teal-700 ${isActive ? 'animate-pulse' : ''}`} />
+          </div>
+        )}
         {isStarred && (
           <div className="absolute top-0.5 left-0.5 bg-amber-400 rounded-full p-0.5">
             <Star className="w-2.5 h-2.5 text-white fill-white" />
@@ -88,51 +104,53 @@ export function PropertyCard({ property, onClick, onDelete, onStar }: PropertyCa
       {/* Info */}
       <div className="flex-1 min-w-0">
         <h3 className="font-semibold text-slate-900 dark:text-slate-100 truncate text-sm sm:text-base">
-          {propData.address.displayAddress}
+          {hasRealAddress ? propData.address.displayAddress : 'Analyzing property…'}
         </h3>
         
-        {(propData.price !== undefined && propData.price !== null || !status || status === 'complete') && (
+        {/* Price — show as soon as scraped */}
+        {propData.price != null && (
           <p className="text-slate-600 dark:text-slate-400 font-medium text-sm">
             {priceText}
           </p>
         )}
 
-        {status && status !== 'complete' ? (
-          <div className="flex items-center gap-2 mt-1 min-w-0">
-            {getStatusBadge()}
-            {status === 'error' && error ? (
-              <span className="text-xs text-red-500 dark:text-red-400 truncate max-w-[180px] sm:max-w-[280px]" title={error}>
-                {error}
-              </span>
-            ) : (
-              jobId && (
-                <span className="text-xs text-slate-400 dark:text-slate-500 font-mono select-none">
-                  #{jobId.slice(-4)}
-                </span>
-              )
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+        {/* Status + dynamic info row */}
+        <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400 dark:text-slate-500 flex-wrap">
+          {/* Status badge for active/error jobs */}
+          {status && status !== 'complete' && getStatusBadge()}
+
+          {/* Error message */}
+          {status === 'error' && error && (
+            <span className="text-xs text-red-500 dark:text-red-400 truncate max-w-[180px] sm:max-w-[280px]" title={error}>
+              {error}
+            </span>
+          )}
+
+          {/* Timestamp for completed cards */}
+          {(!status || status === 'complete') && (
             <span>Saved {formatTimeAgo(timestamp)}</span>
-            {data.commuteTimes && data.commuteTimes.length > 0 && (
-              <>
+          )}
+
+          {/* Commute times — shown for ANY card as soon as available */}
+          {commuteTimes && (
+            <>
+              {(!status || status === 'complete') && (
                 <span className="text-slate-300 dark:text-slate-700">·</span>
-                {[...data.commuteTimes].sort((a, b) => (a.destination === 'Bloomberg' ? -1 : b.destination === 'Bloomberg' ? 1 : 0)).map((c) => (
-                  <span key={c.destination} className="inline-flex items-center gap-0.5" title={`${c.destination}: ${c.durationText}`}>
-                    {c.destination === 'Bloomberg' ? '💼' : '🎓'}
-                    <span className="font-medium text-slate-500 dark:text-slate-400">{c.durationText}</span>
-                  </span>
-                ))}
-              </>
-            )}
-          </div>
-        )}
+              )}
+              {[...commuteTimes].sort((a, b) => (a.destination === 'Bloomberg' ? -1 : b.destination === 'Bloomberg' ? 1 : 0)).map((c) => (
+                <span key={c.destination} className="inline-flex items-center gap-0.5" title={`${c.destination}: ${c.durationText}`}>
+                  {c.destination === 'Bloomberg' ? '💼' : '🎓'}
+                  <span className="font-medium text-slate-500 dark:text-slate-400">{c.durationText}</span>
+                </span>
+              ))}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Action Buttons */}
       <div className="flex-shrink-0 flex items-center border-l border-slate-100 dark:border-slate-800 pl-1 ml-1 gap-0.5">
-        {/* Star Button */}
+        {/* Star Button — only for completed properties */}
         {!status && (
           <button
             onClick={onStar}
@@ -160,7 +178,7 @@ export function PropertyCard({ property, onClick, onDelete, onStar }: PropertyCa
       </div>
 
       {/* Progress Bar for active jobs */}
-      {status && status !== 'complete' && status !== 'error' && (
+      {isActive && (
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-100 dark:bg-slate-800 overflow-hidden rounded-b-xl">
           <div
             className="h-full bg-teal-500 transition-all duration-500 ease-out"

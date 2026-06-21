@@ -86,6 +86,7 @@ export async function calculateCommuteTime(
     url.searchParams.set('origin', originAddress);
     url.searchParams.set('destination', destination.address);
     url.searchParams.set('mode', 'transit');
+    url.searchParams.set('transit_mode', 'subway|train|rail');
     url.searchParams.set('departure_time', departureTime.toString());
     url.searchParams.set('alternatives', 'false');
     url.searchParams.set('key', apiKey);

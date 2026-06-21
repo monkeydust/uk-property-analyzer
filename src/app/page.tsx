@@ -2580,7 +2580,7 @@ function HomeContent() {
                     <div className="px-6 pb-6">
                       <pre className="text-sm text-teal-300 overflow-x-auto whitespace-pre-wrap font-mono">
                         {JSON.stringify({
-                          ...result.property,
+                          ...result?.property,
                           ...(schoolsData ? { schoolsAttended: { areaName: schoolsData.areaName, primarySchools: schoolsData.primarySchools, secondarySchools: schoolsData.secondarySchools } } : {}),
                         }, null, 2)}
                       </pre>

@@ -177,7 +177,7 @@ export async function runJob(jobId: string): Promise<void> {
                 timeout: 60000,
               });
               const plotData = await plotRes.json();
-              if (plotData.success) {
+              if (plotData.plotSizeAcres !== null && plotData.plotSizeAcres !== undefined) {
                 await updateJob(jobId, { plotSizeData: JSON.stringify(plotData) });
                 logger.info(`[JOB ${jobId}] Plot size complete: ${plotData.plotSizeAcres} acres`, 'job-runner');
               }

@@ -2010,7 +2010,7 @@ function HomeContent() {
                                                 ? 'bg-green-400'
                                                 : 'bg-blue-400'
                                       }`} />
-                                      {i < commute.steps.length - 1 && (
+                                      {i < commute.steps!.length - 1 && (
                                         <div className="w-0.5 flex-1 min-h-[12px] bg-slate-200 dark:bg-slate-700" />
                                       )}
                                     </div>

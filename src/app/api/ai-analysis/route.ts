@@ -8,9 +8,9 @@ export const maxDuration = 300; // 5 minutes — needed for slow models (Opus + 
 
 
 
-const DEFAULT_MODEL = 'google/gemini-3-flash-preview';
+const DEFAULT_MODEL = 'google/gemini-3.1-pro';
 const ALLOWED_MODELS = [
-  'google/gemini-3-flash-preview',
+  'google/gemini-3.1-pro',
   'anthropic/claude-opus-4.6',
 ];
 

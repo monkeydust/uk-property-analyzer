@@ -1122,9 +1122,9 @@ function HomeContent() {
     }
   }, [result?.property?.id]);
 
-  // Fetch AI analyses when property + schools data are ready (or schools failed)
+  // Fetch AI analyses when property + all other data are ready
   useEffect(() => {
-    if (!result || schoolsLoading) return;
+    if (!result || schoolsLoading || marketDataLoading || stationsLoading || commuteLoading || transactionsLoading) return;
     if (!schoolsData && !schoolsError) return;
 
     const propertyId = result.property.id;
@@ -1164,7 +1164,7 @@ function HomeContent() {
     fetch('/api/ai-analysis', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ propertyJson: combinedJson, model: 'google/gemini-3-flash-preview', bustCache: shouldBustAiCache }),
+      body: JSON.stringify({ propertyJson: combinedJson, model: 'google/gemini-3.1-pro', bustCache: shouldBustAiCache }),
     })
       .then(res => res.json())
       .then(data => {
@@ -1204,7 +1204,7 @@ function HomeContent() {
           setAiLoading(false);
         }
       });
-  }, [result, schoolsData, schoolsError, schoolsLoading]);
+  }, [result, schoolsData, schoolsError, schoolsLoading, marketDataLoading, stationsLoading, commuteLoading, transactionsLoading, mergeLogs]);
 
   // Clear input and refocus
   const handleClear = () => {

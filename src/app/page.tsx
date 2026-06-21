@@ -2541,7 +2541,8 @@ function HomeContent() {
                   )}
                 </div>
 
-                {/* JSON Section - Collapsible */}
+                {/* JSON Section - Hidden (dev only) */}
+                {false && (
                 <div className="bg-slate-800 rounded-xl shadow-md overflow-hidden">
                   <div className="px-6 py-4 flex items-center justify-between text-white">
                     <button
@@ -2586,8 +2587,10 @@ function HomeContent() {
                     </div>
                   )}
                 </div>
+                )}
 
-                {/* Logs Section - Collapsible */}
+                {/* Logs Section - Hidden (dev only) */}
+                {false && (
                 <div className="bg-slate-800 rounded-xl shadow-md overflow-hidden">
                   <div
                     onClick={() => setLogsExpanded(!logsExpanded)}
@@ -2651,6 +2654,7 @@ function HomeContent() {
                     </div>
                   )}
                 </div>
+                )}
               </div>
             )}
           </div>

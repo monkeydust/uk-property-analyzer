@@ -1475,7 +1475,7 @@ function HomeContent() {
               >
                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-slate-100 font-[family-name:var(--font-inter)] truncate tracking-tight flex items-center gap-2 flex-wrap">
                   rightdata<span className="text-teal-500">.uk</span>
-                  <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 tracking-normal leading-none mt-1">v1.01</span>
+                  <span className="text-xs font-semibold text-slate-400 dark:text-slate-500 tracking-normal leading-none mt-1">v1.02</span>
                   {userId === 'demo' && (
                     <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 border border-amber-300 dark:border-amber-700 leading-none mt-1">
                       DEMO

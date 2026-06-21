@@ -1164,7 +1164,7 @@ function HomeContent() {
     fetch('/api/ai-analysis', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ propertyJson: combinedJson, model: 'google/gemini-3.1-pro', bustCache: shouldBustAiCache }),
+      body: JSON.stringify({ propertyJson: combinedJson, model: 'google/gemini-3.1-pro-preview', bustCache: shouldBustAiCache }),
     })
       .then(res => res.json())
       .then(data => {

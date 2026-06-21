@@ -10,8 +10,18 @@ interface PropertyCardProps {
   onStar: (e: React.MouseEvent) => void;
 }
 
+const getProgressPercent = (status: string) => {
+  switch (status) {
+    case 'queued': return 15;
+    case 'scraping': return 35;
+    case 'enriching': return 70;
+    case 'analyzing': return 90;
+    default: return 0;
+  }
+};
+
 export function PropertyCard({ property, onClick, onDelete, onStar }: PropertyCardProps) {
-  const { data, timestamp, isStarred } = property;
+  const { data, timestamp, isStarred, status, error, jobId } = property;
   const { property: propData } = data;
 
   // Get first image or placeholder based on type
@@ -22,10 +32,39 @@ export function PropertyCard({ property, onClick, onDelete, onStar }: PropertyCa
     ? `£${propData.price.toLocaleString()}`
     : 'Price N/A';
 
+  const getStatusBadge = () => {
+    if (!status) return null;
+
+    if (status === 'error') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400 border border-red-100 dark:border-red-900/40">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
+          Failed
+        </span>
+      );
+    }
+
+    const labels: Record<string, string> = {
+      queued: 'Queued',
+      scraping: 'Scraping',
+      enriching: 'Enriching',
+      analyzing: 'AI Analyzing',
+    };
+
+    const label = labels[status] || 'Processing';
+
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-400 border border-teal-100 dark:border-teal-900/40">
+        <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse flex-shrink-0" />
+        {label}
+      </span>
+    );
+  };
+
   return (
     <div
       onClick={onClick}
-      className={`group flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border active:bg-slate-50 dark:active:bg-slate-800 ${
+      className={`group relative overflow-hidden flex items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border active:bg-slate-50 dark:active:bg-slate-800 ${
         isStarred
           ? 'border-amber-300 dark:border-amber-600/60'
           : 'border-slate-200 dark:border-slate-700'
@@ -51,50 +90,84 @@ export function PropertyCard({ property, onClick, onDelete, onStar }: PropertyCa
         <h3 className="font-semibold text-slate-900 dark:text-slate-100 truncate text-sm sm:text-base">
           {propData.address.displayAddress}
         </h3>
-        <p className="text-slate-600 dark:text-slate-400 font-medium text-sm">
-          {priceText}
-        </p>
-        <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400 dark:text-slate-500">
-          <span>Saved {formatTimeAgo(timestamp)}</span>
-          {data.commuteTimes && data.commuteTimes.length > 0 && (
-            <>
-              <span className="text-slate-300 dark:text-slate-700">·</span>
-              {[...data.commuteTimes].sort((a, b) => (a.destination === 'Bloomberg' ? -1 : b.destination === 'Bloomberg' ? 1 : 0)).map((c) => (
-                <span key={c.destination} className="inline-flex items-center gap-0.5" title={`${c.destination}: ${c.durationText}`}>
-                  {c.destination === 'Bloomberg' ? '💼' : '🎓'}
-                  <span className="font-medium text-slate-500 dark:text-slate-400">{c.durationText}</span>
+        
+        {(propData.price !== undefined && propData.price !== null || !status || status === 'complete') && (
+          <p className="text-slate-600 dark:text-slate-400 font-medium text-sm">
+            {priceText}
+          </p>
+        )}
+
+        {status && status !== 'complete' ? (
+          <div className="flex items-center gap-2 mt-1 min-w-0">
+            {getStatusBadge()}
+            {status === 'error' && error ? (
+              <span className="text-xs text-red-500 dark:text-red-400 truncate max-w-[180px] sm:max-w-[280px]" title={error}>
+                {error}
+              </span>
+            ) : (
+              jobId && (
+                <span className="text-xs text-slate-400 dark:text-slate-500 font-mono select-none">
+                  #{jobId.slice(-4)}
                 </span>
-              ))}
-            </>
-          )}
-        </div>
+              )
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+            <span>Saved {formatTimeAgo(timestamp)}</span>
+            {data.commuteTimes && data.commuteTimes.length > 0 && (
+              <>
+                <span className="text-slate-300 dark:text-slate-700">·</span>
+                {[...data.commuteTimes].sort((a, b) => (a.destination === 'Bloomberg' ? -1 : b.destination === 'Bloomberg' ? 1 : 0)).map((c) => (
+                  <span key={c.destination} className="inline-flex items-center gap-0.5" title={`${c.destination}: ${c.durationText}`}>
+                    {c.destination === 'Bloomberg' ? '💼' : '🎓'}
+                    <span className="font-medium text-slate-500 dark:text-slate-400">{c.durationText}</span>
+                  </span>
+                ))}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Action Buttons */}
       <div className="flex-shrink-0 flex items-center border-l border-slate-100 dark:border-slate-800 pl-1 ml-1 gap-0.5">
         {/* Star Button */}
-        <button
-          onClick={onStar}
-          className={`p-2.5 rounded-lg transition-all ${
-            isStarred
-              ? 'text-amber-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'
-              : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50 dark:text-slate-600 dark:hover:bg-amber-900/20'
-          }`}
-          aria-label={isStarred ? 'Remove from shortlist' : 'Add to shortlist'}
-          title={isStarred ? 'Remove from shortlist' : 'Add to shortlist'}
-        >
-          <Star className={`w-4 h-4 ${isStarred ? 'fill-amber-400' : ''}`} />
-        </button>
+        {!status && (
+          <button
+            onClick={onStar}
+            className={`p-2.5 rounded-lg transition-all ${
+              isStarred
+                ? 'text-amber-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20'
+                : 'text-slate-300 hover:text-amber-400 hover:bg-amber-50 dark:text-slate-600 dark:hover:bg-amber-900/20'
+            }`}
+            aria-label={isStarred ? 'Remove from shortlist' : 'Add to shortlist'}
+            title={isStarred ? 'Remove from shortlist' : 'Add to shortlist'}
+          >
+            <Star className={`w-4 h-4 ${isStarred ? 'fill-amber-400' : ''}`} />
+          </button>
+        )}
 
         {/* Delete Button */}
         <button
           onClick={onDelete}
           className="p-2.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 dark:active:bg-red-900/40 transition-all"
-          aria-label="Delete property"
+          aria-label={status ? "Cancel job" : "Delete property"}
+          title={status ? "Cancel job" : "Delete property"}
         >
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Progress Bar for active jobs */}
+      {status && status !== 'complete' && status !== 'error' && (
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-100 dark:bg-slate-800 overflow-hidden rounded-b-xl">
+          <div
+            className="h-full bg-teal-500 transition-all duration-500 ease-out"
+            style={{ width: `${getProgressPercent(status)}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }

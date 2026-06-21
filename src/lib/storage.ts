@@ -6,6 +6,9 @@ export interface SavedProperty {
   url: string;
   timestamp: number;
   isStarred: boolean;
+  status?: string; // queued | scraping | enriching | analyzing | complete | error
+  error?: string | null;
+  jobId?: string;
   data: {
     property: Property;
     schools: AttendedSchoolsResult | null;
@@ -78,18 +81,66 @@ export async function getProperty(id: string): Promise<SavedProperty | null> {
 
 export async function deleteProperty(id: string): Promise<SavedProperty | null> {
   try {
-    const response = await fetch(`/api/saved-properties/${id}`, {
+    const isJob = id.startsWith('job_');
+    const url = isJob 
+      ? `/api/jobs/${id.replace('job_', '')}`
+      : `/api/saved-properties/${id}`;
+
+    const response = await fetch(url, {
       method: 'DELETE',
     });
 
     if (!response.ok) {
-      throw new Error('Failed to delete property');
+      throw new Error(isJob ? 'Failed to delete job' : 'Failed to delete property');
     }
 
     const result = await response.json();
     
     if (!result.success) {
-      throw new Error(result.error || 'Failed to delete property');
+      throw new Error(result.error || (isJob ? 'Failed to delete job' : 'Failed to delete property'));
+    }
+
+    if (isJob) {
+      // Return a minimal placeholder object for UI state transition
+      return {
+        id,
+        url: '',
+        timestamp: Date.now(),
+        isStarred: false,
+        data: {
+          property: {
+            id,
+            sourceUrl: '',
+            price: null,
+            pricePerSqFt: null,
+            listingType: 'sale',
+            bedrooms: null,
+            bathrooms: null,
+            squareFootage: null,
+            propertyType: '',
+            address: {
+              displayAddress: '',
+              streetName: null,
+              doorNumber: null,
+              postcode: null,
+              postcodeOutward: null,
+              postcodeInward: null,
+            },
+            epc: null,
+            description: '',
+            features: [],
+            images: [],
+            coordinates: null,
+            nearestStations: null,
+            nearestTubeStations: null,
+            scrapedAt: new Date().toISOString(),
+          },
+          schools: null,
+          aiAnalysis: null,
+          aiModel: null,
+          commuteTimes: [],
+        }
+      };
     }
 
     return result.data || null;

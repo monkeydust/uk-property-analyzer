@@ -422,6 +422,28 @@ function HomeContent() {
       .catch(() => { /* non-fatal */ });
   }, []);
 
+  // Poll saved properties when on dashboard and there are active jobs running
+  useEffect(() => {
+    if (view !== 'dashboard') return;
+
+    const hasActiveJobs = savedProperties.some(
+      (p) => p.status && p.status !== 'complete' && p.status !== 'error'
+    );
+
+    if (!hasActiveJobs) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const properties = await getSavedProperties();
+        setSavedProperties(properties);
+      } catch (e) {
+        // ignore
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [view, savedProperties]);
+
   // Schools elapsed-time ticker — resets whenever a new scrape starts
   useEffect(() => {
     if (!schoolsLoading) {
@@ -470,6 +492,49 @@ function HomeContent() {
   const aiFiredForPropertyRef = useRef<string | null>(null);
 
   const handlePropertyClick = (property: SavedProperty) => {
+    if (property.status && property.status !== 'complete') {
+      // Clear previous results/enrichments to avoid layout flash
+      setResult(null);
+      setSchoolsData(null);
+      setSchoolsError(null);
+      setAiAnalysis(null);
+      setAiError(null);
+      setMarketData(null);
+      setError(property.error || null);
+
+      // Pre-populate progress states based on card data
+      const isScraped = !!property.data?.property && property.data.property.address?.displayAddress !== property.url;
+      setJobProgress({
+        status: property.status,
+        propertyData: isScraped,
+        schoolsData: !!property.data?.schools,
+        marketData: !!property.data?.property?.marketData,
+        stationsData: !!property.data?.property?.nearestStations,
+        commuteData: !!property.data?.property?.commuteTimes?.length,
+        transactionsData: !!property.data?.property?.transactions,
+        plotSizeData: !!(property.data?.property?.marketData?.data as any)?.plotSize,
+        aiAnalysis: !!property.data?.aiAnalysis,
+        error: property.error,
+      });
+
+      // If we scraped some property data already, display it
+      if (isScraped) {
+        setResult({
+          property: {
+            ...property.data.property,
+            commuteTimes: property.data.commuteTimes || [],
+          },
+          postcode: property.data.property.address.postcode,
+        });
+      } else {
+        setLoading(true);
+      }
+
+      setActiveJobId(property.jobId || property.id.replace('job_', ''));
+      setView('analysis');
+      return;
+    }
+
     setSelectedProperty(property);
     activePropertyIdRef.current = property.id;
     // Reset commute times ref when loading a saved property
@@ -645,9 +710,18 @@ function HomeContent() {
         return;
       }
 
-      // Start polling for this job — the polling effect handles everything
+      // Clear search query
+      setSearchQuery('');
+
+      // Redirect to dashboard so the card is visible instantly
+      setView('dashboard');
+
+      // Start polling for this job in background
       setJobProgress({ status: 'queued' });
       setActiveJobId(data.jobId);
+
+      // Immediately fetch properties to display the new job card
+      getSavedProperties().then(setSavedProperties);
     } catch {
       setError('Network error - please try again');
       setLoading(false);

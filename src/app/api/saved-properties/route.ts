@@ -31,14 +31,103 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       whereClause = { userId }; // Fallback
     }
 
-    const savedProperties = await prisma.savedProperty.findMany({
+        const savedProperties = await prisma.savedProperty.findMany({
       where: whereClause,
       orderBy: {
         timestamp: 'desc',
       },
     });
 
-    // Parse JSON strings back to objects
+    // Fetch active jobs (not complete) for this user
+    const activeJobs = await prisma.analysisJob.findMany({
+      where: {
+        userId,
+        status: { not: 'complete' },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Format active jobs as virtual SavedProperty cards
+    const formattedJobs = activeJobs.map((job) => {
+      let propertyDataObj = null;
+      if (job.propertyData) {
+        try {
+          propertyDataObj = JSON.parse(job.propertyData);
+        } catch {
+          // ignore
+        }
+      }
+
+      if (!propertyDataObj) {
+        propertyDataObj = {
+          id: `job_${job.id}`,
+          sourceUrl: job.url,
+          price: null,
+          pricePerSqFt: null,
+          listingType: 'sale',
+          bedrooms: null,
+          bathrooms: null,
+          squareFootage: null,
+          propertyType: '',
+          address: {
+            displayAddress: job.url,
+            streetName: null,
+            doorNumber: null,
+            postcode: null,
+            postcodeOutward: null,
+            postcodeInward: null,
+          },
+          epc: null,
+          description: 'Analyzing...',
+          features: [],
+          images: [],
+          coordinates: null,
+          nearestStations: null,
+          nearestTubeStations: null,
+          scrapedAt: new Date().toISOString(),
+        };
+      }
+
+      let schoolsObj = null;
+      if (job.schoolsData) {
+        try {
+          schoolsObj = JSON.parse(job.schoolsData);
+        } catch {
+          // ignore
+        }
+      }
+
+      let commuteTimesObj = [];
+      if (job.commuteData) {
+        try {
+          const parsed = JSON.parse(job.commuteData);
+          commuteTimesObj = parsed.commuteTimes || [];
+        } catch {
+          // ignore
+        }
+      }
+
+      return {
+        id: `job_${job.id}`,
+        url: job.url,
+        timestamp: job.createdAt.getTime(),
+        isStarred: false,
+        status: job.status,
+        error: job.error,
+        jobId: job.id,
+        data: {
+          property: propertyDataObj,
+          schools: schoolsObj,
+          aiAnalysis: job.aiAnalysis,
+          aiModel: job.aiModel,
+          commuteTimes: commuteTimesObj,
+        },
+      };
+    });
+
+    // Parse JSON strings back to objects for completed saved properties
     const formattedProperties = savedProperties
       .map((prop) => {
         try {
@@ -65,7 +154,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       })
       .filter((p): p is NonNullable<typeof p> => p !== null);
 
-    return NextResponse.json({ success: true, data: formattedProperties });
+    // Combine and sort by timestamp (newest first)
+    const allItems = [...formattedJobs, ...formattedProperties].sort((a, b) => b.timestamp - a.timestamp);
+
+    return NextResponse.json({ success: true, data: allItems });
   } catch (error) {
     console.error('Failed to fetch saved properties:', error);
     return NextResponse.json(

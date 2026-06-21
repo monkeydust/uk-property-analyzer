@@ -2382,13 +2382,13 @@ function HomeContent() {
                   <div className="flex items-center gap-2 mb-4">
                     <Sparkles className="w-5 h-5 text-slate-500 dark:text-slate-400" />
                     <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Summary Report</h2>
-                    <span className="text-xs text-slate-400 font-normal">Gemini Flash</span>
+                    <span className="text-xs text-slate-400 font-normal">Gemini 3.1 Pro</span>
                   </div>
 
                   {!aiLoading && !aiAnalysis && !aiError && (
                     <div className="flex items-center justify-center gap-3 py-8 text-slate-400">
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      <span className="text-sm">Waiting for school data before analysing...</span>
+                      <span className="text-sm">Waiting for all data before analysing...</span>
                     </div>
                   )}
 

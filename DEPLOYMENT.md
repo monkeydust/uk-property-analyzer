@@ -70,6 +70,20 @@ To check how many saved properties are in the DB on the server:
 sqlite3 /var/lib/docker/volumes/uk-property-analyzer_sqlite_data/_data/production.db "SELECT COUNT(*) FROM SavedProperty;"
 ```
 
+### After Deploying — Verify via Test Pack
+
+You can run the post-upgrade test pack from your local machine to verify that all APIs and the E2E job runner pipeline are functional.
+
+Run local tests:
+```bash
+node tmp/test-pack.js
+```
+
+Run production tests (targeting the live website):
+```bash
+node tmp/test-pack.js https://rightdata.uk
+```
+
 ## Setting Up Caddy (Already Done — For Reference)
 
 Caddy is installed at `/etc/caddy/Caddyfile`:

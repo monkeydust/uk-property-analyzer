@@ -12,3 +12,4 @@ description: How to deploy or redeploy to Hetzner (rightdata.uk)
 2. SSH into the server: `ssh root@89.167.62.131`
 3. Follow the "Deploying an Update" section exactly — in particular note the docker-compose v1 `ContainerConfig` bug workaround.
 4. After deploying, verify the site is up: `curl -s https://www.rightdata.uk -o /dev/null -w "%{http_code}"`
+5. Run the production test pack from your local machine to verify functionality: `node tmp/test-pack.js https://rightdata.uk`

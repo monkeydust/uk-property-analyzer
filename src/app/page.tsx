@@ -2786,8 +2786,8 @@ function HomeContent() {
                   )}
                 </div>
 
-                {/* JSON Section - Hidden (dev only) */}
-                {false && (
+                {/* JSON Section */}
+                {(
                 <div className="bg-slate-800 rounded-xl shadow-md overflow-hidden">
                   <div className="px-6 py-4 flex items-center justify-between text-white">
                     <button

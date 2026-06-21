@@ -699,7 +699,7 @@ function HomeContent() {
       const response = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlToSubmit }),
+        body: JSON.stringify({ url: urlToSubmit, bustCache }),
       });
 
       const data = await response.json();

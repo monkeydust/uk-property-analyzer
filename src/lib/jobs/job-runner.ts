@@ -42,7 +42,7 @@ async function updateJob(jobId: string, data: Record<string, unknown>) {
  * Run the full property analysis pipeline for a job.
  * This is fire-and-forget — updates the DB as it progresses.
  */
-export async function runJob(jobId: string): Promise<void> {
+export async function runJob(jobId: string, bustCache = false): Promise<void> {
   if (activeJobs.has(jobId)) {
     logger.warn(`Job ${jobId} already running, skipping`, 'job-runner');
     return;
@@ -68,7 +68,7 @@ export async function runJob(jobId: string): Promise<void> {
       const res = await apiFetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: job.url }),
+        body: JSON.stringify({ url: job.url, bustCache }),
         timeout: 30000,
       });
       const data = await res.json();
@@ -292,6 +292,7 @@ export async function runJob(jobId: string): Promise<void> {
         body: JSON.stringify({
           propertyJson: combinedJson,
           model: 'google/gemini-3.1-pro-preview',
+          bustCache,
         }),
         timeout: 120000,
       });
@@ -393,9 +394,9 @@ export async function runJob(jobId: string): Promise<void> {
 /**
  * Start a job (fire-and-forget). Returns immediately.
  */
-export function startJob(jobId: string): void {
+export function startJob(jobId: string, bustCache = false): void {
   // Don't await — this runs in the background
-  runJob(jobId).catch((e) => {
+  runJob(jobId, bustCache).catch((e) => {
     logger.error(`[JOB ${jobId}] Unhandled error: ${e}`, 'job-runner');
   });
 }

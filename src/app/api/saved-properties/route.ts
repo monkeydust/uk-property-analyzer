@@ -5,6 +5,16 @@ function getUserId(request: NextRequest): string {
   return request.cookies.get('user_id')?.value || 'admin';
 }
 
+/** Normalize a URL for deduplication (strip query/hash/trailing slash) */
+function normalizeUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.origin + u.pathname.replace(/\/$/, '');
+  } catch {
+    return url.split('?')[0].split('#')[0].replace(/\/$/, '');
+  }
+}
+
 // GET /api/saved-properties - Get all saved properties sorted by timestamp (newest first)
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
@@ -31,7 +41,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       whereClause = { userId }; // Fallback
     }
 
-        const savedProperties = await prisma.savedProperty.findMany({
+    const savedProperties = await prisma.savedProperty.findMany({
       where: whereClause,
       orderBy: {
         timestamp: 'desc',
@@ -49,113 +59,150 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       },
     });
 
-    // Format active jobs as virtual SavedProperty cards
-    const formattedJobs = activeJobs.map((job) => {
-      let propertyDataObj = null;
-      if (job.propertyData) {
+    // Auto-timeout stale jobs older than 10 minutes that are still running
+    const TEN_MINUTES = 10 * 60 * 1000;
+    const now = Date.now();
+    for (const job of activeJobs) {
+      if (job.status !== 'error' && (now - job.createdAt.getTime()) > TEN_MINUTES) {
         try {
-          propertyDataObj = JSON.parse(job.propertyData);
-        } catch {
-          // ignore
-        }
+          await prisma.analysisJob.update({
+            where: { id: job.id },
+            data: { status: 'error', error: 'Timed out (exceeded 10 minutes)' },
+          });
+          job.status = 'error';
+          job.error = 'Timed out (exceeded 10 minutes)';
+        } catch { /* ignore */ }
       }
+    }
 
-      if (!propertyDataObj) {
-        propertyDataObj = {
-          id: `job_${job.id}`,
-          sourceUrl: job.url,
-          price: null,
-          pricePerSqFt: null,
-          listingType: 'sale',
-          bedrooms: null,
-          bathrooms: null,
-          squareFootage: null,
-          propertyType: '',
-          address: {
-            displayAddress: job.url,
-            streetName: null,
-            doorNumber: null,
-            postcode: null,
-            postcodeOutward: null,
-            postcodeInward: null,
+    // Build a lookup of saved properties by normalized URL
+    const savedByNormUrl = new Map<string, number>();
+    const formattedProperties: Array<Record<string, unknown>> = [];
+
+    for (const prop of savedProperties) {
+      try {
+        const cleanId = prop.id.replace(/^(demo__|stratgroup__)/, '');
+        const normUrl = normalizeUrl(prop.url);
+        const formatted = {
+          id: cleanId,
+          url: prop.url,
+          timestamp: prop.timestamp.getTime(),
+          isStarred: prop.isStarred,
+          // These will be set below if an active job matches
+          status: undefined as string | undefined,
+          error: undefined as string | null | undefined,
+          jobId: undefined as string | undefined,
+          data: {
+            property: JSON.parse(prop.propertyData),
+            schools: prop.schoolsData ? JSON.parse(prop.schoolsData) : null,
+            aiAnalysis: prop.aiAnalysis,
+            aiModel: prop.aiModel,
+            ai2Analysis: prop.ai2Analysis,
+            ai2Model: prop.ai2Model,
+            commuteTimes: JSON.parse(prop.commuteTimes || '[]'),
           },
-          epc: null,
-          description: 'Analyzing...',
-          features: [],
-          images: [],
-          coordinates: null,
-          nearestStations: null,
-          nearestTubeStations: null,
-          scrapedAt: new Date().toISOString(),
         };
+        const idx = formattedProperties.length;
+        formattedProperties.push(formatted);
+        savedByNormUrl.set(normUrl, idx);
+      } catch (parseError) {
+        console.error(`Skipping corrupted property ${prop.id}:`, parseError);
       }
+    }
 
-      let schoolsObj = null;
-      if (job.schoolsData) {
-        try {
-          schoolsObj = JSON.parse(job.schoolsData);
-        } catch {
-          // ignore
-        }
-      }
-
-      let commuteTimesObj = [];
-      if (job.commuteData) {
-        try {
-          const parsed = JSON.parse(job.commuteData);
-          commuteTimesObj = parsed.commuteTimes || [];
-        } catch {
-          // ignore
-        }
-      }
-
-      return {
-        id: `job_${job.id}`,
-        url: job.url,
-        timestamp: job.createdAt.getTime(),
-        isStarred: false,
-        status: job.status,
-        error: job.error,
-        jobId: job.id,
-        data: {
-          property: propertyDataObj,
-          schools: schoolsObj,
-          aiAnalysis: job.aiAnalysis,
-          aiModel: job.aiModel,
-          commuteTimes: commuteTimesObj,
-        },
-      };
+    // Deduplicate active jobs by normalized URL (keep most recent per URL)
+    const seenJobUrls = new Set<string>();
+    const dedupedJobs = activeJobs.filter((job) => {
+      const norm = normalizeUrl(job.url);
+      if (seenJobUrls.has(norm)) return false;
+      seenJobUrls.add(norm);
+      return true;
     });
 
-    // Parse JSON strings back to objects for completed saved properties
-    const formattedProperties = savedProperties
-      .map((prop) => {
-        try {
-          const cleanId = prop.id.replace(/^(demo__|stratgroup__)/, '');
-          return {
-            id: cleanId,
-            url: prop.url,
-            timestamp: prop.timestamp.getTime(),
-            isStarred: prop.isStarred,
-            data: {
-              property: JSON.parse(prop.propertyData),
-              schools: prop.schoolsData ? JSON.parse(prop.schoolsData) : null,
-              aiAnalysis: prop.aiAnalysis,
-              aiModel: prop.aiModel,
-              ai2Analysis: prop.ai2Analysis,
-              ai2Model: prop.ai2Model,
-              commuteTimes: JSON.parse(prop.commuteTimes || '[]'),
-            },
-          };
-        } catch (parseError) {
-          console.error(`Skipping corrupted property ${prop.id}:`, parseError);
-          return null;
+    // Merge active jobs into existing saved properties or create virtual cards
+    const virtualCards: Array<Record<string, unknown>> = [];
+    for (const job of dedupedJobs) {
+      const normUrl = normalizeUrl(job.url);
+      const savedIdx = savedByNormUrl.get(normUrl);
+
+      if (savedIdx !== undefined) {
+        // Merge: attach job status to the existing saved property card
+        const existing = formattedProperties[savedIdx];
+        existing.status = job.status;
+        existing.error = job.error;
+        existing.jobId = job.id;
+      } else {
+        // No saved property yet — create a virtual card
+        let propertyDataObj = null;
+        if (job.propertyData) {
+          try { propertyDataObj = JSON.parse(job.propertyData); } catch { /* ignore */ }
         }
-      })
-      .filter((p): p is NonNullable<typeof p> => p !== null);
+        if (!propertyDataObj) {
+          propertyDataObj = {
+            id: `job_${job.id}`,
+            sourceUrl: job.url,
+            price: null,
+            pricePerSqFt: null,
+            listingType: 'sale',
+            bedrooms: null,
+            bathrooms: null,
+            squareFootage: null,
+            propertyType: '',
+            address: {
+              displayAddress: job.url,
+              streetName: null,
+              doorNumber: null,
+              postcode: null,
+              postcodeOutward: null,
+              postcodeInward: null,
+            },
+            epc: null,
+            description: 'Analyzing...',
+            features: [],
+            images: [],
+            coordinates: null,
+            nearestStations: null,
+            nearestTubeStations: null,
+            scrapedAt: new Date().toISOString(),
+          };
+        }
+
+        let schoolsObj = null;
+        if (job.schoolsData) {
+          try { schoolsObj = JSON.parse(job.schoolsData); } catch { /* ignore */ }
+        }
+
+        let commuteTimesObj: unknown[] = [];
+        if (job.commuteData) {
+          try {
+            const parsed = JSON.parse(job.commuteData);
+            commuteTimesObj = parsed.commuteTimes || [];
+          } catch { /* ignore */ }
+        }
+
+        virtualCards.push({
+          id: `job_${job.id}`,
+          url: job.url,
+          timestamp: job.createdAt.getTime(),
+          isStarred: false,
+          status: job.status,
+          error: job.error,
+          jobId: job.id,
+          data: {
+            property: propertyDataObj,
+            schools: schoolsObj,
+            aiAnalysis: job.aiAnalysis,
+            aiModel: job.aiModel,
+            commuteTimes: commuteTimesObj,
+          },
+        });
+      }
+    }
 
     // Combine and sort by timestamp (newest first)
-    const allItems = [...formattedJobs, ...formattedProperties].sort((a, b) => b.timestamp - a.timestamp);
+    const allItems = [...virtualCards, ...formattedProperties].sort(
+      (a, b) => (b.timestamp as number) - (a.timestamp as number)
+    );
 
     return NextResponse.json({ success: true, data: allItems });
   } catch (error) {

@@ -59,7 +59,7 @@ export function PropertyCard({ property, onClick, onDelete, onStar }: PropertyCa
           {data.commuteTimes && data.commuteTimes.length > 0 && (
             <>
               <span className="text-slate-300 dark:text-slate-700">·</span>
-              {data.commuteTimes.map((c) => (
+              {[...data.commuteTimes].sort((a, b) => (a.destination === 'Bloomberg' ? -1 : b.destination === 'Bloomberg' ? 1 : 0)).map((c) => (
                 <span key={c.destination} className="inline-flex items-center gap-0.5" title={`${c.destination}: ${c.durationText}`}>
                   {c.destination === 'Bloomberg' ? '💼' : '🎓'}
                   <span className="font-medium text-slate-500 dark:text-slate-400">{c.durationText}</span>

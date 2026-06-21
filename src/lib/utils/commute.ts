@@ -10,7 +10,7 @@ interface CommuteDestination {
 export const COMMUTE_DESTINATIONS: CommuteDestination[] = [
   {
     name: 'Bloomberg',
-    address: '50 Finsbury Square, London EC2A 1HD',
+    address: '3 Queen Victoria Street, London EC4N 4TQ',
     icon: 'briefcase',
   },
   {

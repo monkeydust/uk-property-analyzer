@@ -14,21 +14,40 @@ function formatPropertyResponse(property: {
   commuteTimes: string; isStarred: boolean;
 }) {
   const cleanId = property.id.replace(/^(demo__|stratgroup__)/, '');
-  return {
-    id: cleanId,
-    url: property.url,
-    timestamp: property.timestamp.getTime(),
-    isStarred: property.isStarred,
-    data: {
-      property: JSON.parse(property.propertyData),
-      schools: property.schoolsData ? JSON.parse(property.schoolsData) : null,
-      aiAnalysis: property.aiAnalysis,
-      aiModel: property.aiModel,
-      ai2Analysis: property.ai2Analysis,
-      ai2Model: property.ai2Model,
-      commuteTimes: JSON.parse(property.commuteTimes || '[]'),
-    },
-  };
+  try {
+    return {
+      id: cleanId,
+      url: property.url,
+      timestamp: property.timestamp.getTime(),
+      isStarred: property.isStarred,
+      data: {
+        property: JSON.parse(property.propertyData),
+        schools: property.schoolsData ? JSON.parse(property.schoolsData) : null,
+        aiAnalysis: property.aiAnalysis,
+        aiModel: property.aiModel,
+        ai2Analysis: property.ai2Analysis,
+        ai2Model: property.ai2Model,
+        commuteTimes: JSON.parse(property.commuteTimes || '[]'),
+      },
+    };
+  } catch (parseError) {
+    console.error(`Failed to parse property data for ${cleanId}:`, parseError);
+    return {
+      id: cleanId,
+      url: property.url,
+      timestamp: property.timestamp.getTime(),
+      isStarred: property.isStarred,
+      data: {
+        property: {},
+        schools: null,
+        aiAnalysis: property.aiAnalysis,
+        aiModel: property.aiModel,
+        ai2Analysis: property.ai2Analysis,
+        ai2Model: property.ai2Model,
+        commuteTimes: [],
+      },
+    };
+  }
 }
 
 function clearCaches(property: { url: string; propertyData: string }) {
@@ -37,12 +56,16 @@ function clearCaches(property: { url: string; propertyData: string }) {
     propertyCache.delete(cacheKey);
     aiCache.deleteMatching(cacheKey);
   }
-  const propertyData = JSON.parse(property.propertyData);
-  if (propertyData?.address?.postcode) {
-    schoolsCache.deleteMatching(propertyData.address.postcode);
-  }
-  if (propertyData?.address?.displayAddress) {
-    schoolsCache.deleteMatching(propertyData.address.displayAddress);
+  try {
+    const propertyData = JSON.parse(property.propertyData);
+    if (propertyData?.address?.postcode) {
+      schoolsCache.deleteMatching(propertyData.address.postcode);
+    }
+    if (propertyData?.address?.displayAddress) {
+      schoolsCache.deleteMatching(propertyData.address.displayAddress);
+    }
+  } catch {
+    // Non-fatal — cache clearing is best-effort
   }
 }
 

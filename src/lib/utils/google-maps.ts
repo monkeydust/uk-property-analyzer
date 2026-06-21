@@ -326,3 +326,63 @@ export function haversineDistance(
     Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+
+/**
+ * Forward geocode an address string to get coordinates, postcode, and address components.
+ * Uses Google Geocoding API. Useful when the scraper can't extract structured data.
+ */
+export async function forwardGeocode(
+  address: string
+): Promise<ReverseGeocodeResult & { latitude: number; longitude: number } | null> {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const url = new URL('https://maps.googleapis.com/maps/api/geocode/json');
+    url.searchParams.set('address', address);
+    url.searchParams.set('key', apiKey);
+    url.searchParams.set('components', 'country:GB');
+
+    const response = await fetch(url.toString());
+    if (!response.ok) return null;
+
+    const data: GoogleGeocodeResponse & {
+      results: { geometry: { location: { lat: number; lng: number } } }[];
+    } = await response.json();
+
+    if (data.status !== 'OK' || !data.results[0]) return null;
+
+    const result = data.results[0];
+    const components = result.address_components;
+
+    let streetNumber: string | null = null;
+    let streetName: string | null = null;
+    let postcode: string | null = null;
+
+    for (const component of components) {
+      if (component.types.includes('street_number')) {
+        streetNumber = component.long_name;
+      }
+      if (component.types.includes('route')) {
+        streetName = component.long_name;
+      }
+      if (component.types.includes('postal_code')) {
+        postcode = component.long_name;
+      }
+      if (component.types.includes('premise') && !streetNumber) {
+        streetNumber = component.long_name;
+      }
+    }
+
+    return {
+      formattedAddress: result.formatted_address,
+      streetNumber,
+      streetName,
+      postcode,
+      latitude: result.geometry.location.lat,
+      longitude: result.geometry.location.lng,
+    };
+  } catch {
+    return null;
+  }
+}

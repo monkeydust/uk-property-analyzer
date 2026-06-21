@@ -21,7 +21,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<PlotSizeR
 
         if (!address || typeof address !== 'string') {
             return NextResponse.json(
-                { plotSizeAcres: null, uprn: null, titleNumber: null, matchedAddress: null, method: null },
+                { plotSizeAcres: null, uprn: null, titleNumber: null, matchedAddress: null, method: null, error: 'Address is required' },
                 { status: 400 }
             );
         }

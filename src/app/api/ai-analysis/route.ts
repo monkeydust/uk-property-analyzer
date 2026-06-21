@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error(`ERROR | model=${selectedModel} | status=${response.status} | elapsed=${elapsed}s`, 'ai-analysis');
+      logger.error(`ERROR | model=${selectedModel} | status=${response.status} | elapsed=${elapsed}s | body=${errorText.slice(0, 500)}`, 'ai-analysis');
       return NextResponse.json(
         { success: false, error: `AI service error (${response.status})` },
         { status: 502 }

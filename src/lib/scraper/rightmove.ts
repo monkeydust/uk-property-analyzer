@@ -85,24 +85,197 @@ export async function scrapeRightmoveProperty(url: string): Promise<ScrapeResult
 }
 
 /**
+ * Unpack Rightmove's packed JSON format.
+ * The format uses an array where index 0 is the root schema object,
+ * and numeric values in objects are references (indices) into the array.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function unpackPageModel(dataStr: string): Record<string, any> | null {
+  try {
+    const arr = JSON.parse(dataStr);
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function resolve(val: any, depth: number): any {
+      if (depth > 20) return val; // Prevent infinite recursion
+      if (val === null || val === undefined) return val;
+      if (typeof val === 'string' || typeof val === 'boolean') return val;
+      if (typeof val === 'number') {
+        // In the schema objects (depth > 0), integers are references into the array.
+        // After dereferencing, if the result is a primitive, it's the final value — don't re-resolve.
+        if (Number.isInteger(val) && val >= 0 && val < arr.length) {
+          const resolved = arr[val];
+          if (resolved === null || resolved === undefined) return resolved;
+          if (typeof resolved === 'string' || typeof resolved === 'boolean') return resolved;
+          if (typeof resolved === 'number') return resolved; // Literal number — don't re-resolve
+          // For objects/arrays, continue resolving their contents
+          return resolve(resolved, depth + 1);
+        }
+        return val; // Floating point or out of range — literal
+      }
+      if (Array.isArray(val)) {
+        return val.map(v => resolve(v, depth + 1));
+      }
+      if (typeof val === 'object') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const out: Record<string, any> = {};
+        for (const key of Object.keys(val)) {
+          out[key] = resolve(val[key], depth + 1);
+        }
+        return out;
+      }
+      return val;
+    }
+
+    return resolve(arr[0], 0);
+  } catch (e) {
+    console.error('Failed to unpack PAGE_MODEL:', e);
+    return null;
+  }
+}
+
+/**
+ * Extract property data from a decoded PAGE_MODEL object (works with both old and new formats).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractFromDecodedPageModel(model: Record<string, any>): {
+  postcode: string | null;
+  streetName: string | null;
+  doorNumber: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  epcCurrentRating: string | null;
+  epcPotentialRating: string | null;
+  epcGraphUrl: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  propertyType: string | null;
+  squareFootage: number | null;
+} {
+  const pd = model.propertyData || model;
+  const address = pd.address || {};
+  const location = pd.location || {};
+
+  // Postcode from structured address
+  let postcode: string | null = null;
+  if (address.outcode && address.incode) {
+    postcode = `${address.outcode.toUpperCase()} ${address.incode.toUpperCase()}`;
+  }
+
+  // Street name from display address
+  let streetName: string | null = null;
+  if (address.displayAddress) {
+    streetName = address.displayAddress.split(',')[0].trim();
+  }
+
+  // Door number
+  const doorNumber = address.buildingNumber || address.buildingName || address.propertyNumber || null;
+
+  // Coordinates
+  const latitude = typeof location.latitude === 'number' ? location.latitude : null;
+  const longitude = typeof location.longitude === 'number' ? location.longitude : null;
+
+  // EPC
+  let epcCurrentRating: string | null = null;
+  let epcPotentialRating: string | null = null;
+  let epcGraphUrl: string | null = null;
+
+  if (pd.epcGraphs && Array.isArray(pd.epcGraphs) && pd.epcGraphs.length > 0) {
+    epcGraphUrl = pd.epcGraphs[0]?.url || null;
+    epcCurrentRating = pd.epcGraphs[0]?.currentEnergyRating || null;
+    epcPotentialRating = pd.epcGraphs[0]?.potentialEnergyRating || null;
+  }
+  // Also check top-level fields
+  if (!epcCurrentRating) {
+    epcCurrentRating = pd.eerCurrentRating || pd.currentEnergyRating || pd.epcRating || null;
+  }
+  if (!epcPotentialRating) {
+    epcPotentialRating = pd.eerPotentialRating || pd.potentialEnergyRating || null;
+  }
+  if (epcCurrentRating) epcCurrentRating = epcCurrentRating.toUpperCase();
+  if (epcPotentialRating) epcPotentialRating = epcPotentialRating.toUpperCase();
+
+  // Bedrooms and bathrooms
+  const bedrooms = typeof pd.bedrooms === 'number' ? pd.bedrooms : null;
+  const bathrooms = typeof pd.bathrooms === 'number' ? pd.bathrooms : null;
+
+  // Property type
+  let propertyType: string | null = null;
+  if (pd.propertySubType) {
+    propertyType = pd.propertySubType.toLowerCase();
+  } else if (pd.soldPropertyType) {
+    propertyType = pd.soldPropertyType.toLowerCase();
+  }
+
+  // Square footage from sizings
+  let squareFootage: number | null = null;
+  if (pd.sizings && Array.isArray(pd.sizings)) {
+    for (const s of pd.sizings) {
+      if (s.unit === 'sqft' && typeof s.maximumSize === 'number') {
+        squareFootage = s.maximumSize;
+        break;
+      }
+    }
+  }
+
+  return {
+    postcode, streetName, doorNumber,
+    latitude, longitude,
+    epcCurrentRating, epcPotentialRating, epcGraphUrl,
+    bedrooms, bathrooms, propertyType, squareFootage,
+  };
+}
+
+/**
  * Parse Rightmove HTML and extract property data
  */
 function parseRightmoveHtml(html: string, sourceUrl: string, rightmoveId: string): Property | null {
   const $ = cheerio.load(html);
 
   // Try to find JSON data embedded in page (most reliable)
-  let jsonData: Record<string, unknown> | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let decodedPageModel: Record<string, any> | null = null;
 
   $('script').each((_, element) => {
     const content = $(element).html() || '';
 
-    // Look for window.PAGE_MODEL
-    const pageModelMatch = content.match(/window\.PAGE_MODEL\s*=\s*(\{[\s\S]*?\});?\s*(?:window\.|<\/script>|$)/);
-    if (pageModelMatch) {
-      try {
-        jsonData = JSON.parse(pageModelMatch[1]);
-      } catch {
-        // Try alternative parsing
+    // Strategy A: New packed format — window.__PAGE_MODEL = { data: "...", encoding: "on" }
+    if (content.includes('__PAGE_MODEL')) {
+      const idx = content.indexOf('__PAGE_MODEL');
+      const jsonStart = content.indexOf('{', idx);
+      if (jsonStart !== -1) {
+        // Find matching closing brace using depth counting
+        let depth = 0;
+        let jsonEnd = jsonStart;
+        for (let i = jsonStart; i < content.length; i++) {
+          if (content[i] === '{') depth++;
+          if (content[i] === '}') { depth--; if (depth === 0) { jsonEnd = i + 1; break; } }
+        }
+        try {
+          const wrapper = JSON.parse(content.substring(jsonStart, jsonEnd));
+          if (wrapper.encoding === 'on' && typeof wrapper.data === 'string') {
+            decodedPageModel = unpackPageModel(wrapper.data);
+            console.log('Decoded __PAGE_MODEL (packed format)');
+          } else if (typeof wrapper.data === 'object') {
+            decodedPageModel = wrapper.data;
+            console.log('Decoded __PAGE_MODEL (plain format)');
+          }
+        } catch {
+          // Try legacy parse
+        }
+      }
+    }
+
+    // Strategy B: Legacy format — window.PAGE_MODEL = { ... }
+    if (!decodedPageModel && content.includes('PAGE_MODEL') && !content.includes('__PAGE_MODEL')) {
+      const pageModelMatch = content.match(/window\.PAGE_MODEL\s*=\s*(\{[\s\S]*?\});?\s*(?:window\.|<\/script>|$)/);
+      if (pageModelMatch) {
+        try {
+          decodedPageModel = JSON.parse(pageModelMatch[1]);
+          console.log('Decoded PAGE_MODEL (legacy format)');
+        } catch {
+          // Ignore parse errors
+        }
       }
     }
   });
@@ -122,7 +295,6 @@ function parseRightmoveHtml(html: string, sourceUrl: string, rightmoveId: string
   let postcode: string | null = null;
   console.log('Address found:', displayAddress);
 
-  // Strategy 1: Look for postcode in PAGE_MODEL JSON (most reliable for this property)
   let streetName: string | null = null;
   let doorNumber: string | null = null;
   let epcCurrentRating: string | null = null;
@@ -131,107 +303,86 @@ function parseRightmoveHtml(html: string, sourceUrl: string, rightmoveId: string
   let latitude: number | null = null;
   let longitude: number | null = null;
 
-  $('script').each((_, element) => {
-    const content = $(element).html() || '';
-
-    // Look for PAGE_MODEL which contains property details
-    if (content.includes('PAGE_MODEL') || content.includes('propertyData')) {
-      // Look for outcode pattern (the area code like N20, SW1, etc.)
-      const outcodeMatch = content.match(/"outcode"\s*:\s*"([A-Z]{1,2}\d{1,2}[A-Z]?)"/i);
-      const incodeMatch = content.match(/"incode"\s*:\s*"(\d[A-Z]{2})"/i);
-
-      if (outcodeMatch && incodeMatch) {
-        postcode = `${outcodeMatch[1].toUpperCase()} ${incodeMatch[1].toUpperCase()}`;
-        console.log('Postcode from PAGE_MODEL (outcode+incode):', postcode);
-      }
-
-      // Try direct postcode field
-      if (!postcode) {
-        const postcodeMatch = content.match(/"postcode"\s*:\s*"([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})"/i);
-        if (postcodeMatch) {
-          postcode = postcodeMatch[1].toUpperCase().replace(/\s+/g, ' ');
-          console.log('Postcode from PAGE_MODEL (direct):', postcode);
-        }
-      }
-
-      // Extract street name from display address (first part before comma)
-      const displayMatch = content.match(/"displayAddress"\s*:\s*"([^"]+)"/);
-      if (displayMatch) {
-        streetName = displayMatch[1].split(',')[0].trim();
-        console.log('Street name parsed from displayAddress:', streetName);
-      }
-
-      // Extract building/door number (may be called various things)
-      const buildingMatch = content.match(/"(?:buildingNumber|buildingName|propertyNumber)"\s*:\s*"([^"]+)"/);
-      if (buildingMatch) {
-        doorNumber = buildingMatch[1];
-        console.log('Door/building number from PAGE_MODEL:', doorNumber);
-      }
-
-      // Extract EPC ratings - try multiple field names
-      const epcPatterns = [
-        /"currentEnergyRating"\s*:\s*"([A-G])"/i,
-        /"epcRating"\s*:\s*"([A-G])"/i,
-        /"energyRating"\s*:\s*"([A-G])"/i,
-        /"current(?:Epc)?Rating"\s*:\s*"([A-G])"/i,
-      ];
-
-      for (const pattern of epcPatterns) {
-        const match = content.match(pattern);
-        if (match && !epcCurrentRating) {
-          epcCurrentRating = match[1].toUpperCase();
-          console.log('EPC current rating found:', epcCurrentRating);
-          break;
-        }
-      }
-
-      const epcPotentialPatterns = [
-        /"potentialEnergyRating"\s*:\s*"([A-G])"/i,
-        /"potential(?:Epc)?Rating"\s*:\s*"([A-G])"/i,
-      ];
-
-      for (const pattern of epcPotentialPatterns) {
-        const match = content.match(pattern);
-        if (match && !epcPotentialRating) {
-          epcPotentialRating = match[1].toUpperCase();
-          console.log('EPC potential rating found:', epcPotentialRating);
-          break;
-        }
-      }
-
-      // Look for EPC ratings in various formats
-      // Format: "eerCurrentRating": "d" or "eerPotentialRating": "c"
-      const eerCurrentMatch = content.match(/"eerCurrentRating"\s*:\s*"([a-gA-G])"/);
-      if (eerCurrentMatch && !epcCurrentRating) {
-        epcCurrentRating = eerCurrentMatch[1].toUpperCase();
-        console.log('EPC current (eerCurrentRating):', epcCurrentRating);
-      }
-
-      const eerPotentialMatch = content.match(/"eerPotentialRating"\s*:\s*"([a-gA-G])"/);
-      if (eerPotentialMatch && !epcPotentialRating) {
-        epcPotentialRating = eerPotentialMatch[1].toUpperCase();
-        console.log('EPC potential (eerPotentialRating):', epcPotentialRating);
-      }
-
-      // Extract EPC graph URL
-      const epcGraphMatch = content.match(/"epcGraphs"\s*:\s*\[\s*\{\s*"url"\s*:\s*"([^"]+)"/);
-      if (epcGraphMatch && !epcGraphUrl) {
-        epcGraphUrl = epcGraphMatch[1];
-        console.log('EPC graph URL:', epcGraphUrl);
-      }
-
-      // Extract latitude and longitude
-      const latMatch = content.match(/"latitude"\s*:\s*([-\d.]+)/);
-      const lngMatch = content.match(/"longitude"\s*:\s*([-\d.]+)/);
-      if (latMatch && lngMatch) {
-        latitude = parseFloat(latMatch[1]);
-        longitude = parseFloat(lngMatch[1]);
-        console.log('Coordinates from PAGE_MODEL:', latitude, longitude);
-      }
-
-      if (postcode) return false;
+  // Strategy 1: Extract from decoded PAGE_MODEL (most reliable)
+  if (decodedPageModel) {
+    const extracted = extractFromDecodedPageModel(decodedPageModel);
+    if (extracted.postcode) { postcode = extracted.postcode; console.log('Postcode from PAGE_MODEL:', postcode); }
+    if (extracted.streetName) { streetName = extracted.streetName; console.log('Street name from PAGE_MODEL:', streetName); }
+    if (extracted.doorNumber) { doorNumber = extracted.doorNumber; console.log('Door number from PAGE_MODEL:', doorNumber); }
+    if (extracted.latitude !== null && extracted.longitude !== null) {
+      latitude = extracted.latitude;
+      longitude = extracted.longitude;
+      console.log('Coordinates from PAGE_MODEL:', latitude, longitude);
     }
-  });
+    if (extracted.epcCurrentRating) { epcCurrentRating = extracted.epcCurrentRating; console.log('EPC current from PAGE_MODEL:', epcCurrentRating); }
+    if (extracted.epcPotentialRating) { epcPotentialRating = extracted.epcPotentialRating; console.log('EPC potential from PAGE_MODEL:', epcPotentialRating); }
+    if (extracted.epcGraphUrl) { epcGraphUrl = extracted.epcGraphUrl; }
+    // Override HTML-parsed details with structured data when available
+    if (extracted.bedrooms !== null && details.bedrooms === null) details.bedrooms = extracted.bedrooms;
+    if (extracted.bathrooms !== null && details.bathrooms === null) details.bathrooms = extracted.bathrooms;
+    if (extracted.propertyType && details.propertyType === 'unknown') details.propertyType = extracted.propertyType;
+    if (extracted.squareFootage !== null && details.squareFootage === null) details.squareFootage = extracted.squareFootage;
+  }
+
+  // Strategy 2: Fallback — regex-based extraction from raw script content
+  if (!postcode || !latitude) {
+    $('script').each((_, element) => {
+      const content = $(element).html() || '';
+      if (content.includes('PAGE_MODEL') || content.includes('propertyData')) {
+        if (!postcode) {
+          const outcodeMatch = content.match(/"outcode"\s*:\s*"([A-Z]{1,2}\d{1,2}[A-Z]?)"/i);
+          const incodeMatch = content.match(/"incode"\s*:\s*"(\d[A-Z]{2})"/i);
+          if (outcodeMatch && incodeMatch) {
+            postcode = `${outcodeMatch[1].toUpperCase()} ${incodeMatch[1].toUpperCase()}`;
+            console.log('Postcode from regex (outcode+incode):', postcode);
+          }
+        }
+        if (!postcode) {
+          const postcodeMatch = content.match(/"postcode"\s*:\s*"([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})"/i);
+          if (postcodeMatch) {
+            postcode = postcodeMatch[1].toUpperCase().replace(/\s+/g, ' ');
+            console.log('Postcode from regex (direct):', postcode);
+          }
+        }
+        if (!streetName) {
+          const displayMatch = content.match(/"displayAddress"\s*:\s*"([^"]+)"/);
+          if (displayMatch) { streetName = displayMatch[1].split(',')[0].trim(); }
+        }
+        if (!doorNumber) {
+          const buildingMatch = content.match(/"(?:buildingNumber|buildingName|propertyNumber)"\s*:\s*"([^"]+)"/);
+          if (buildingMatch) { doorNumber = buildingMatch[1]; }
+        }
+        if (!latitude) {
+          const latMatch = content.match(/"latitude"\s*:\s*([-\d.]+)/);
+          const lngMatch = content.match(/"longitude"\s*:\s*([-\d.]+)/);
+          if (latMatch && lngMatch) {
+            latitude = parseFloat(latMatch[1]);
+            longitude = parseFloat(lngMatch[1]);
+            console.log('Coordinates from regex:', latitude, longitude);
+          }
+        }
+        if (!epcCurrentRating) {
+          const epcPatterns = [
+            /"currentEnergyRating"\s*:\s*"([A-G])"/i,
+            /"epcRating"\s*:\s*"([A-G])"/i,
+            /"eerCurrentRating"\s*:\s*"([a-gA-G])"/,
+          ];
+          for (const pattern of epcPatterns) {
+            const match = content.match(pattern);
+            if (match) { epcCurrentRating = match[1].toUpperCase(); break; }
+          }
+        }
+        if (!epcPotentialRating) {
+          const match = content.match(/"(?:potentialEnergyRating|eerPotentialRating)"\s*:\s*"([a-gA-G])"/);
+          if (match) { epcPotentialRating = match[1].toUpperCase(); }
+        }
+        if (!epcGraphUrl) {
+          const match = content.match(/"epcGraphs"\s*:\s*\[\s*\{\s*"url"\s*:\s*"([^"]+)"/);
+          if (match) { epcGraphUrl = match[1]; }
+        }
+      }
+    });
+  }
 
   // Fallback: Check HTML body for EPC rating text
   if (!epcCurrentRating) {

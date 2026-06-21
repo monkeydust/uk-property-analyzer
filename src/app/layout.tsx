@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
@@ -24,7 +24,6 @@ export const metadata: Metadata = {
   title: "rightdata.uk",
   description: "Extract property data from Rightmove listings",
   manifest: "/manifest.json",
-  themeColor: "#0f172a",
   icons: {
     icon: [
       { url: '/icon.svg', type: 'image/svg+xml' },
@@ -32,6 +31,10 @@ export const metadata: Metadata = {
     shortcut: '/icon.svg',
     apple: '/icon.svg',
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#0f172a',
 };
 
 export default function RootLayout({

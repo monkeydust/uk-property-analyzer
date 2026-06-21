@@ -1,6 +1,6 @@
 # UK Property Analyzer
 
-A web application that analyzes UK property listings from Rightmove, enriching them with market insights, nearby rail/tube stations, school attendance data, commute time comparisons, and an AI-powered summary report. Designed for home buyers.
+A web application that analyzes UK property listings from Rightmove, enriching them with market insights, nearby rail/tube stations, school attendance data, commute time breakdowns, and an AI-powered summary report. Designed for home buyers.
 
 ## What You'll Get
 
@@ -13,10 +13,10 @@ Paste any Rightmove property URL and receive a comprehensive report including:
 - **Plot Size** — Total land area in acres (from HM Land Registry)
 - **EPC Rating** — Energy Performance Certificate with visual graph
 - **Nearest Rail Stations** — Walking times from Google Maps with train operator badges (e.g. Thameslink, GWR)
-- **Nearest Tube Stations** — With colour-coded line badges (e.g. Northern, Victoria, Elizabeth)
-- **Commute Comparison** — Transit time to Bloomberg HQ and UCL, benchmarked against your current address
+- **Nearest Tube Stations** — With colour-coded line badges (e.g. Metropolitan, Northern, Elizabeth). Dual-purpose stations (e.g. Chalfont & Latimer) are correctly shown in both rail and tube lists
+- **Commute Breakdown** — Step-by-step transit journey to Bloomberg HQ and UCL showing walk → train → tube → walk legs with line names, station-to-station detail, and stop counts
 - **Schools Attended** — Which primary and secondary schools local children actually attend (from Locrating)
-- **AI Summary Report** — Analysis from Claude Opus covering value, location, transport, schools, and negotiation strategy
+- **AI Summary Report** — Analysis from Gemini Flash covering value, location, transport, schools, and negotiation strategy
 - **Saved Properties** — All analyzed properties are auto-saved to a central SQLite database and accessible from the dashboard
 - **Parallel Processing** — Multiple searches can be processed in the background simultaneously
 - **Mobile Optimized** — Touch-friendly UI with clear actions and mobile-first navigation
@@ -24,6 +24,7 @@ Paste any Rightmove property URL and receive a comprehensive report including:
 - **Direct Links** — Click any property image to go straight to the Rightmove listing
 - **Activity Log** — View real-time server-side logs for each analysis
 - **Navigation** — Easy switching between the property dashboard and detailed analysis views
+- **API Credits Display** — Live PropertyData and OpenRouter credit balances shown in the header
 
 ## Home Buyer Focus
 
@@ -39,18 +40,18 @@ This tool is designed specifically for home buyers, not investors or renters. Fe
 
 | Data | Source |
 |------|--------|
-| Property details, price, photos | Rightmove |
+| Property details, price, photos | Rightmove (packed `__PAGE_MODEL` decoder) |
 | Market valuation, growth, ownership data | PropertyData API (HM Land Registry) |
 | Plot size & title information | PropertyData API (HM Land Registry) |
 | Crime ratings & flood risk | PropertyData API |
-| Coordinates & door number | Postcodes.io + Google Reverse Geocoding |
+| Coordinates & door number | Google Reverse Geocoding + Rightmove PAGE_MODEL |
 | Rail & tube stations | Google Places API |
 | Walking distances & times | Google Distance Matrix API |
-| Tube line information | TfL Unified API |
+| Tube line information | TfL Unified API + built-in station line map |
 | Train operators | Wikidata API + static lookup |
-| Commute times | Google Distance Matrix API (transit mode) |
+| Commute journey breakdown | Google Directions API (transit mode) |
 | School attendance data | Locrating.com (LSOA/neighbourhood data) |
-| AI summary | OpenRouter (Anthropic Claude Opus) |
+| AI summary | OpenRouter (Google Gemini Flash) |
 
 ### About PropertyData
 
@@ -128,12 +129,21 @@ The app uses parallel API calls for fast loading:
 /api/analyze     → Property data (scrape + geocode) — ~3-5s
   ├→ /api/market-data → Market valuation & risks (parallel)
   ├→ /api/stations    → Rail & tube stations (parallel)
-  ├→ /api/commute     → Commute time comparison (parallel)
+  ├→ /api/commute     → Step-by-step commute breakdown (parallel)
   ├→ /api/schools     → School attendance data (parallel)
-  └→ /api/ai-analysis  → Claude Opus summary (after all data)
+  ├→ /api/plot-size   → Land registry plot size (parallel)
+  └→ /api/ai-analysis → AI summary (after all data)
 ```
 
 The Property Summary and Market Insights cards appear within 3-5 seconds. Stations, commute times, schools, and AI analysis load independently with their own loading spinners.
+
+### Rightmove Scraper
+
+The scraper handles Rightmove's packed JSON encoding (`window.__PAGE_MODEL`):
+1. **Detection**: Identifies the `__PAGE_MODEL` script tag with `{ data: "...", encoding: "on" }` wrapper
+2. **Unpacking**: Parses the packed array format where numeric values are indices into a shared lookup array
+3. **Extraction**: Reads structured property data (postcode, coordinates, bedrooms, EPC, sizings) from the decoded object
+4. **Fallback**: Legacy `window.PAGE_MODEL` (plain JSON) is still supported for older listings
 
 ### Market Data Flow
 
@@ -147,6 +157,12 @@ The Property Summary and Market Insights cards appear within 3-5 seconds. Statio
    - `/flood-risk` — Flood risk assessment
    - `/conservation-area` — Planning restrictions
 4. **Fallback Logic**: If the exact address isn't in the UPRN database (common with new builds), the system uses nearby properties on the same street (marked with * in the UI)
+
+### Station Classification
+
+Stations are fetched via Google Places API with cross-referencing against a built-in tube line database:
+- Stations typed as `train_station` by Google but also serving tube lines (e.g. Chalfont & Latimer = Metropolitan line) are correctly shown in both rail and tube lists
+- Tube line colours and badges are mapped from the built-in station database
 
 ## Tech Stack
 

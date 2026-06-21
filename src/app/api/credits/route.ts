@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * GET /api/credits
@@ -6,7 +6,12 @@ import { NextResponse } from 'next/server';
  * Returns credit/balance info for PropertyData and OpenRouter APIs.
  * Called on mount to display small status indicators in the dashboard header.
  */
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: NextRequest): Promise<NextResponse> {
+    const authCookie = request.cookies.get('site_auth');
+    if (authCookie?.value !== 'authenticated') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const [pdResult, orResult] = await Promise.allSettled([
         fetchPropertyDataCredits(),
         fetchOpenRouterCredits(),

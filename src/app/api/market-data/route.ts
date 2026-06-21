@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getMarketData } from '@/lib/propertydata/market-data';
-import { marketDataCache, TTL } from '@/lib/cache';
 import logger from '@/lib/logger';
 import type { MarketDataResult } from '@/lib/types/property';
 
@@ -16,21 +15,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<MarketDat
       );
     }
 
-    const cacheKey = `marketData::${postcode.toUpperCase().replace(/\s+/g, '')}::${bedrooms ?? 'unknown'}::${propertyType || 'unknown'}`;
-
-    // If bustCache is set, clear the cache
-    if (bustCache) {
-      logger.info(`Cache BUST requested for market data | ${cacheKey}`, 'market-data');
-      marketDataCache.delete(cacheKey);
-    }
-
-    const cached = marketDataCache.get(cacheKey);
-    if (cached) {
-      logger.info(`Market data cache HIT | ${cacheKey}`, 'market-data');
-      return NextResponse.json({ ...cached, cached: true });
-    }
-
-    logger.info(`Market data cache MISS | ${cacheKey}`, 'market-data');
+    // Cache checking and bust are handled internally by getMarketData()
 
     const result = await getMarketData(
       postcode,

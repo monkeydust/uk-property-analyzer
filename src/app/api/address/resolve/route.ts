@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Property, AnalysisResponse } from '@/lib/types/property';
-import { reverseGeocode } from '@/lib/utils/google-maps';
 import logger from '@/lib/logger';
 import { propertyCache, TTL } from '@/lib/cache';
 
@@ -87,6 +86,23 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
                 { success: false, error: 'No coordinates found for this location' },
                 { status: 400 }
             );
+        }
+
+        // If Google Places didn't return a full postcode, try reverse geocoding
+        if (!postcode && coordinates) {
+            const { reverseGeocode } = await import('@/lib/utils/google-maps');
+            logger.info('No postcode from Place Details — attempting reverse geocoding...', 'address-resolve');
+            const geocodeResult = await reverseGeocode(coordinates.latitude, coordinates.longitude);
+            if (geocodeResult?.postcode) {
+                postcode = geocodeResult.postcode;
+                logger.info(`Postcode from reverse geocoding: ${postcode}`, 'address-resolve');
+            }
+            if (geocodeResult?.streetNumber && !streetNumber) {
+                streetNumber = geocodeResult.streetNumber;
+            }
+            if (geocodeResult?.streetName && !streetName) {
+                streetName = geocodeResult.streetName;
+            }
         }
 
         const postcodeOutward = postcode ? postcode.split(' ')[0] : null;

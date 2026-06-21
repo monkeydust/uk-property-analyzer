@@ -4,7 +4,6 @@ import { AnalysisResponse } from '@/lib/types/property';
 import { reverseGeocode, getCoordinatesFromPostcode } from '@/lib/utils/google-maps';
 import { propertyCache, schoolsCache, aiCache, plotSizeCache, TTL } from '@/lib/cache';
 import logger from '@/lib/logger';
-import { getPlotSizeAcres } from '@/lib/propertydata/plot-size';
 
 function buildFullAddressForPropertyData(input: {
   doorNumber: string | null;
@@ -119,21 +118,38 @@ export async function POST(request: NextRequest): Promise<NextResponse<AnalysisR
       }
     }
 
-    // Try to get door number via reverse geocoding if we have coordinates
-    if (coordinates && !property.address.doorNumber) {
-      logger.info('Attempting reverse geocoding for door number...', 'analyze');
-      const geocodeResult = await reverseGeocode(
-        coordinates.latitude,
-        coordinates.longitude
-      );
+    // Try to enrich missing address details via reverse geocoding if we have coordinates
+    if (coordinates) {
+      const needsDoorNumber = !property.address.doorNumber;
+      const needsPostcode = !property.address.postcode;
+      const needsStreetName = !property.address.streetName;
 
-      if (geocodeResult?.streetNumber) {
-        property.address.doorNumber = geocodeResult.streetNumber;
-        logger.info(`Door number from reverse geocoding: ${geocodeResult.streetNumber}`, 'analyze');
-      }
+      if (needsDoorNumber || needsPostcode || needsStreetName) {
+        logger.info(`Attempting reverse geocoding for ${[needsPostcode ? 'postcode' : '', needsDoorNumber ? 'door number' : '', needsStreetName ? 'street name' : ''].filter(Boolean).join(', ')}...`, 'analyze');
+        const geocodeResult = await reverseGeocode(
+          coordinates.latitude,
+          coordinates.longitude
+        );
 
-      if (geocodeResult?.streetName && !property.address.streetName) {
-        property.address.streetName = geocodeResult.streetName;
+        if (geocodeResult) {
+          if (geocodeResult.streetNumber && needsDoorNumber) {
+            property.address.doorNumber = geocodeResult.streetNumber;
+            logger.info(`Door number from reverse geocoding: ${geocodeResult.streetNumber}`, 'analyze');
+          }
+
+          if (geocodeResult.streetName && needsStreetName) {
+            property.address.streetName = geocodeResult.streetName;
+          }
+
+          if (geocodeResult.postcode && needsPostcode) {
+            property.address.postcode = geocodeResult.postcode;
+            property.address.postcodeOutward = geocodeResult.postcode.split(' ')[0] || null;
+            property.address.postcodeInward = geocodeResult.postcode.includes(' ')
+              ? geocodeResult.postcode.split(' ')[1] || null
+              : null;
+            logger.info(`Postcode from reverse geocoding: ${geocodeResult.postcode}`, 'analyze');
+          }
+        }
       }
     }
 

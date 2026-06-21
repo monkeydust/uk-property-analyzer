@@ -64,10 +64,22 @@ export interface Property {
     destination: string;
     durationSeconds: number;
     durationText: string;
-    benchmarkDiffSeconds: number;
-    benchmarkDiffText: string;
-    isFaster: boolean;
     arrivalTime: string;
+    steps?: {
+      mode: string;
+      durationSeconds: number;
+      durationText: string;
+      transitLine?: string;
+      transitType?: string;
+      departureStop?: string;
+      arrivalStop?: string;
+      numStops?: number;
+      instruction: string;
+    }[];
+    // Legacy fields (may exist in old saved data)
+    benchmarkDiffSeconds?: number;
+    benchmarkDiffText?: string;
+    isFaster?: boolean;
   }[];
 
   // Meta

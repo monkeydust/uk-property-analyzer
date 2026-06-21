@@ -1,13 +1,11 @@
 // Commute time calculation using Google Directions API
-// Calculates transit times to benchmark destinations
+// Calculates transit times to benchmark destinations with step-by-step breakdown
 
 interface CommuteDestination {
   name: string;
   address: string;
   icon: string;
 }
-
-export const BENCHMARK_ORIGIN = '20 Woodcroft, London NW7 2AG';
 
 export const COMMUTE_DESTINATIONS: CommuteDestination[] = [
   {
@@ -22,20 +20,30 @@ export const COMMUTE_DESTINATIONS: CommuteDestination[] = [
   },
 ];
 
-// Pre-calculated benchmark times (Wednesday 6:40 AM departure)
-export const BENCHMARK_TIMES: Record<string, number> = {
-  'Bloomberg': 2820, // 47 minutes
-  'UCL': 2987,       // 50 minutes
-};
+export interface CommuteStep {
+  mode: 'WALKING' | 'TRANSIT' | string;
+  durationSeconds: number;
+  durationText: string;
+  /** For TRANSIT steps: the transit line name / short name */
+  transitLine?: string;
+  /** For TRANSIT steps: e.g. "HEAVY_RAIL", "SUBWAY", "BUS" */
+  transitType?: string;
+  /** For TRANSIT steps: departure stop */
+  departureStop?: string;
+  /** For TRANSIT steps: arrival stop */
+  arrivalStop?: string;
+  /** For TRANSIT steps: number of stops */
+  numStops?: number;
+  /** Brief instruction text */
+  instruction: string;
+}
 
 export interface CommuteTime {
   destination: string;
   durationSeconds: number;
   durationText: string;
-  benchmarkDiffSeconds: number;
-  benchmarkDiffText: string;
-  isFaster: boolean;
   arrivalTime: string;
+  steps: CommuteStep[];
 }
 
 function getNextWednesday640AM(): number {
@@ -60,19 +68,6 @@ function formatDuration(seconds: number): string {
   return `${minutes} min`;
 }
 
-function formatDiff(seconds: number): string {
-  const absSeconds = Math.abs(seconds);
-  const minutes = Math.floor(absSeconds / 60);
-  
-  if (minutes === 0) {
-    return 'same';
-  } else if (minutes === 1) {
-    return seconds < 0 ? 'saves 1 min' : '+1 min';
-  } else {
-    return seconds < 0 ? `saves ${minutes} mins` : `+${minutes} mins`;
-  }
-}
-
 export async function calculateCommuteTime(
   originAddress: string,
   destination: CommuteDestination
@@ -87,11 +82,12 @@ export async function calculateCommuteTime(
   try {
     const departureTime = getNextWednesday640AM();
     
-    const url = new URL('https://maps.googleapis.com/maps/api/distancematrix/json');
-    url.searchParams.set('origins', originAddress);
-    url.searchParams.set('destinations', destination.address);
+    const url = new URL('https://maps.googleapis.com/maps/api/directions/json');
+    url.searchParams.set('origin', originAddress);
+    url.searchParams.set('destination', destination.address);
     url.searchParams.set('mode', 'transit');
     url.searchParams.set('departure_time', departureTime.toString());
+    url.searchParams.set('alternatives', 'false');
     url.searchParams.set('key', apiKey);
     
     const response = await fetch(url.toString());
@@ -103,19 +99,52 @@ export async function calculateCommuteTime(
     
     const data = await response.json();
     
-    if (data.status !== 'OK' || !data.rows?.[0]?.elements?.[0]) {
+    if (data.status !== 'OK' || !data.routes?.[0]?.legs?.[0]) {
       return null;
     }
     
-    const element = data.rows[0].elements[0];
+    const leg = data.routes[0].legs[0];
+    const durationSeconds = leg.duration.value;
     
-    if (element.status !== 'OK') {
-      return null;
+    // Parse steps into our simplified format
+    const steps: CommuteStep[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const step of (leg.steps || []) as any[]) {
+      const mode: string = step.travel_mode || 'UNKNOWN';
+      const stepDuration = step.duration?.value || 0;
+      const stepDurationText = step.duration?.text || formatDuration(stepDuration);
+      
+      const commuteStep: CommuteStep = {
+        mode,
+        durationSeconds: stepDuration,
+        durationText: stepDurationText,
+        instruction: (step.html_instructions || '').replace(/<[^>]*>/g, ''),
+      };
+      
+      if (mode === 'TRANSIT' && step.transit_details) {
+        const td = step.transit_details;
+        commuteStep.transitLine = td.line?.short_name || td.line?.name || '';
+        commuteStep.transitType = td.line?.vehicle?.type || '';
+        commuteStep.departureStop = td.departure_stop?.name || '';
+        commuteStep.arrivalStop = td.arrival_stop?.name || '';
+        commuteStep.numStops = td.num_stops || undefined;
+      }
+      
+      steps.push(commuteStep);
     }
     
-    const durationSeconds = element.duration.value;
-    const benchmarkSeconds = BENCHMARK_TIMES[destination.name];
-    const diffSeconds = durationSeconds - benchmarkSeconds;
+    // Merge consecutive WALKING steps (Google sometimes splits them)
+    const mergedSteps: CommuteStep[] = [];
+    for (const step of steps) {
+      const prev = mergedSteps[mergedSteps.length - 1];
+      if (prev && prev.mode === 'WALKING' && step.mode === 'WALKING') {
+        prev.durationSeconds += step.durationSeconds;
+        prev.durationText = formatDuration(prev.durationSeconds);
+        prev.instruction = prev.instruction || step.instruction;
+      } else {
+        mergedSteps.push({ ...step });
+      }
+    }
     
     const arrivalTimestamp = (departureTime + durationSeconds) * 1000;
     const arrivalDate = new Date(arrivalTimestamp);
@@ -129,10 +158,8 @@ export async function calculateCommuteTime(
       destination: destination.name,
       durationSeconds,
       durationText: formatDuration(durationSeconds),
-      benchmarkDiffSeconds: diffSeconds,
-      benchmarkDiffText: formatDiff(diffSeconds),
-      isFaster: diffSeconds < 0,
       arrivalTime,
+      steps: mergedSteps,
     };
     
   } catch (error) {

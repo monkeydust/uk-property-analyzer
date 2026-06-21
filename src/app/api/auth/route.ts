@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
-const SITE_PASSWORD = process.env.SITE_PASSWORD || 'Marip0sa';
-const DEMO_PASSWORD = process.env.DEMO_PASSWORD || 'demo';
+const SITE_PASSWORD = process.env.SITE_PASSWORD;
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD;
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,11 +11,11 @@ export async function POST(request: NextRequest) {
     let userId: string | null = null;
     let maxAge = 60 * 60 * 24 * 30; // default 30 days
 
-    if (password === SITE_PASSWORD) {
+    if (SITE_PASSWORD && password === SITE_PASSWORD) {
       userId = 'admin';
-    } else if (password === DEMO_PASSWORD) {
+    } else if (DEMO_PASSWORD && password === DEMO_PASSWORD) {
       userId = 'demo';
-    } else if (password === 'stratgroup' || password === process.env.STRATGROUP_PASSWORD) {
+    } else if (process.env.STRATGROUP_PASSWORD && password === process.env.STRATGROUP_PASSWORD) {
       userId = 'stratgroup';
 
       // Check if seeded on the backend
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     if (!userId) {
       return NextResponse.json(
-        { success: false, error: 'User not found' },
+        { success: false, error: 'Invalid credentials' },
         { status: 401 }
       );
     }

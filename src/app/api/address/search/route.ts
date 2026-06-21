@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import logger from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
     try {
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
 
         const apiKey = process.env.GOOGLE_MAPS_API_KEY;
         if (!apiKey) {
-            console.error('GOOGLE_MAPS_API_KEY is not set');
+            logger.error('GOOGLE_MAPS_API_KEY is not set', 'address-search');
             return NextResponse.json(
                 { success: false, error: 'Google Maps API key is missing' },
                 { status: 500 }
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
         const data = await response.json();
 
         if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-            console.error('Google Places Autocomplete API error:', data.status, data.error_message);
+            logger.error(`Google Places Autocomplete API error: ${data.status} ${data.error_message}`, 'address-search');
             return NextResponse.json(
                 { success: false, error: data.error_message || 'API Error' },
                 { status: 400 }
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ success: true, predictions });
     } catch (error) {
-        console.error('Error in address search:', error);
+        logger.error(`Address search error: ${error}`, 'address-search');
         return NextResponse.json(
             { success: false, error: 'Internal server error' },
             { status: 500 }

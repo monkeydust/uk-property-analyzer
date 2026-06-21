@@ -139,7 +139,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<AttendedSc
 }
 
 /**
- * POST /api/schools  { address: "35, The Fairway, Barnet, EN5 1HH", lat: 51.65, lng: -0.19 }
+ * POST /api/schools { address: "35, The Fairway, Barnet, EN5 1HH", lat: 51.65, lng: -0.19 }
  *
  * Alternative method — accepts address (and optional lat/lng) in request body.
  */
@@ -147,6 +147,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AttendedS
   try {
     const body = await request.json();
     const { address, lat, lng } = body;
+    const bustCache = body.bustCache;
 
     if (!address || typeof address !== 'string' || address.trim().length < 3) {
       return NextResponse.json(
@@ -165,6 +166,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<AttendedS
     const parsedLat = parseFloat(lat);
     const parsedLng = parseFloat(lng);
     const cacheKey = address.trim().toLowerCase();
+    if (bustCache) {
+      logger.info(`Cache BUST requested (POST) | "${address}"`, 'schools');
+      schoolsCache.delete(cacheKey);
+    }
     const cached = schoolsCache.get(cacheKey);
     if (cached) {
       logger.info(`Cache HIT (POST) | "${address}"`, 'schools');

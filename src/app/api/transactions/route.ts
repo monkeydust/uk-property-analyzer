@@ -1,8 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+
+function sanitizeSparqlString(value: string): string {
+  return value.replace(/["'\\<>{}|^`]/g, '').trim();
+}
 
 export const maxDuration = 60; // Allow more time for SPARQL queries if needed
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const postcode = searchParams.get('postcode');
     const doorNumber = searchParams.get('doorNumber');
@@ -27,12 +31,12 @@ export async function GET(request: Request) {
         // Build the appropriate SPARQL postcode/street filter
         let locationFilter = '';
         if (isFullPostcode) {
-            locationFilter = `?addr lrcommon:postcode "${postcode}"^^xsd:string .`;
+            locationFilter = `?addr lrcommon:postcode "${sanitizeSparqlString(postcode)}"^^xsd:string .`;
         } else if (streetName) {
             locationFilter = `
-        ?addr lrcommon:street "${streetName.toUpperCase()}"^^xsd:string .
+        ?addr lrcommon:street "${sanitizeSparqlString(streetName.toUpperCase())}"^^xsd:string .
         ?addr lrcommon:postcode ?pc . 
-        FILTER(STRSTARTS(STR(?pc), "${postcode} "))`;
+        FILTER(STRSTARTS(STR(?pc), "${sanitizeSparqlString(postcode)} "))`;
         }
 
         // We fetch a bit further back (10 years) to have a better chance of finding the target property
@@ -92,8 +96,8 @@ export async function GET(request: Request) {
         const bindings = data.results?.bindings || [];
 
         // Map to our unified format
-        const allTransactions = bindings.map((b: any) => {
-            const extractLabel = (uri: string | null) => {
+        const allTransactions = bindings.map((b: Record<string, { value?: string }>) => {
+            const extractLabel = (uri: string | null | undefined) => {
                 if (!uri) return null;
                 const name = uri.split('/').pop()?.replace(/-/g, ' ');
                 if (!name) return null;
@@ -107,7 +111,7 @@ export async function GET(request: Request) {
                 town: b.town?.value || null,
                 county: b.county?.value || null,
                 postcode: postcode,
-                amount: parseInt(b.amount?.value, 10),
+                amount: parseInt(b.amount?.value || '0', 10) || 0,
                 date: b.date?.value,
                 propertyType: b.propertyType?.value || extractLabel(b.propertyTypeURI?.value) || null,
                 newBuild: b.newBuild?.value === 'true',
@@ -123,7 +127,7 @@ export async function GET(request: Request) {
             const normalizedDoorNumber = doorNumber.toLowerCase().trim();
 
             // Find the exact property in the results
-            const exactMatch = allTransactions.find((t: any) => {
+            const exactMatch = allTransactions.find((t: { paon: string | null; saon: string | null; propertyType: string | null; estateType: string | null }) => {
                 if (!t.paon && !t.saon) return false;
                 const paonMatch = t.paon && t.paon.toLowerCase().trim() === normalizedDoorNumber;
                 const saonMatch = t.saon && t.saon.toLowerCase().trim() === normalizedDoorNumber;
@@ -132,7 +136,7 @@ export async function GET(request: Request) {
 
             // If we found it and it has a property type/estate type, filter out dissimilar properties
             if (exactMatch && exactMatch.propertyType && exactMatch.estateType) {
-                results = allTransactions.filter((t: any) =>
+                results = allTransactions.filter((t: { propertyType: string | null; estateType: string | null }) =>
                     t.propertyType === exactMatch.propertyType &&
                     t.estateType === exactMatch.estateType
                 );
@@ -144,8 +148,8 @@ export async function GET(request: Request) {
 
         return NextResponse.json({ success: true, data: results });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching transactions:', error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }

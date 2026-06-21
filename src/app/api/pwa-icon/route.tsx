@@ -5,13 +5,14 @@ export const runtime = 'edge';
 
 export async function GET(request: NextRequest) {
   const size = parseInt(request.nextUrl.searchParams.get('size') || '192');
+  const clampedSize = Math.min(Math.max(size || 192, 16), 1024);
 
   return new ImageResponse(
     (
       <div
         style={{
-          width: size,
-          height: size,
+          width: clampedSize,
+          height: clampedSize,
           background: 'linear-gradient(135deg, #4F46E5 0%, #06B6D4 100%)',
           display: 'flex',
           alignItems: 'center',
@@ -21,8 +22,8 @@ export async function GET(request: NextRequest) {
       >
         {/* Modern House Silhouette */}
         <svg
-          width={size * 0.6}
-          height={size * 0.6}
+          width={clampedSize * 0.6}
+          height={clampedSize * 0.6}
           viewBox="0 0 24 24"
           fill="white"
           style={{ display: 'flex' }}
@@ -32,14 +33,14 @@ export async function GET(request: NextRequest) {
 
         {/* Sparkle */}
         <svg
-          width={size * 0.25}
-          height={size * 0.25}
+          width={clampedSize * 0.25}
+          height={clampedSize * 0.25}
           viewBox="0 0 24 24"
           fill="#FDE047"
           style={{
             position: 'absolute',
-            top: size * 0.15,
-            right: size * 0.15,
+            top: clampedSize * 0.15,
+            right: clampedSize * 0.15,
             display: 'flex',
           }}
         >
@@ -47,6 +48,6 @@ export async function GET(request: NextRequest) {
         </svg>
       </div>
     ),
-    { width: size, height: size },
+    { width: clampedSize, height: clampedSize },
   );
 }

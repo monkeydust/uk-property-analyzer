@@ -39,26 +39,31 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
     // Parse JSON strings back to objects
-    const formattedProperties = savedProperties.map((prop) => {
-      // Strip namespace prefixes from the ID so the frontend can properly correlate it
-      const cleanId = prop.id.replace(/^(demo__|stratgroup__)/, '');
-
-      return {
-        id: cleanId,
-        url: prop.url,
-        timestamp: prop.timestamp.getTime(),
-        isStarred: prop.isStarred,
-        data: {
-          property: JSON.parse(prop.propertyData),
-          schools: prop.schoolsData ? JSON.parse(prop.schoolsData) : null,
-          aiAnalysis: prop.aiAnalysis,
-          aiModel: prop.aiModel,
-          ai2Analysis: prop.ai2Analysis,
-          ai2Model: prop.ai2Model,
-          commuteTimes: JSON.parse(prop.commuteTimes || '[]'),
-        },
-      };
-    });
+    const formattedProperties = savedProperties
+      .map((prop) => {
+        try {
+          const cleanId = prop.id.replace(/^(demo__|stratgroup__)/, '');
+          return {
+            id: cleanId,
+            url: prop.url,
+            timestamp: prop.timestamp.getTime(),
+            isStarred: prop.isStarred,
+            data: {
+              property: JSON.parse(prop.propertyData),
+              schools: prop.schoolsData ? JSON.parse(prop.schoolsData) : null,
+              aiAnalysis: prop.aiAnalysis,
+              aiModel: prop.aiModel,
+              ai2Analysis: prop.ai2Analysis,
+              ai2Model: prop.ai2Model,
+              commuteTimes: JSON.parse(prop.commuteTimes || '[]'),
+            },
+          };
+        } catch (parseError) {
+          console.error(`Skipping corrupted property ${prop.id}:`, parseError);
+          return null;
+        }
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null);
 
     return NextResponse.json({ success: true, data: formattedProperties });
   } catch (error) {

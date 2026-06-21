@@ -91,7 +91,6 @@ function getLineBadgeStyle(line: string): { bg: string; text: string } {
 function HomeContent() {
   const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ property: Property; postcode: string | null } | null>(null);
@@ -390,9 +389,9 @@ function HomeContent() {
     }
   };
 
-  const handleDismissUndo = () => {
+  const handleDismissUndo = useCallback(() => {
     setUndoState({ show: false, deletedProperty: null });
-  };
+  }, []);
 
   const handleLogout = async () => {
     await fetch('/api/logout', { method: 'POST' });
@@ -1218,7 +1217,7 @@ function HomeContent() {
   const handlePasteButton = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      setUrl(text);
+      setSearchQuery(text);
       if (text.includes('rightmove.co.uk')) {
         submitUrl(text);
       }
@@ -1232,7 +1231,7 @@ function HomeContent() {
     const text = e.clipboardData.getData('text');
     if (text.includes('rightmove.co.uk')) {
       e.preventDefault();
-      setUrl(text);
+      setSearchQuery(text);
       submitUrl(text);
     }
   };
@@ -1966,43 +1965,100 @@ function HomeContent() {
                     {!commuteLoading && result.property.commuteTimes && result.property.commuteTimes.length > 0 && (
                       <div className="space-y-3">
                         {result.property.commuteTimes.map((commute) => (
-                          <div key={commute.destination} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${commute.destination === 'Bloomberg' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'
-                                }`}>
-                                {commute.destination === 'Bloomberg' ? (
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                  </svg>
-                                ) : (
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path d="M12 14l9-5-9-5-9 5 9 5z" />
-                                    <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-                                  </svg>
-                                )}
-                              </div>
-                              <div>
-                                <span className="font-semibold text-slate-900 dark:text-slate-100">{commute.destination}</span>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className={`text-sm font-medium ${commute.isFaster ? 'text-green-600' : commute.benchmarkDiffSeconds === 0 ? 'text-slate-500 dark:text-slate-400' : 'text-red-500'
-                                    }`}>
-                                    {commute.isFaster ? '✓' : commute.benchmarkDiffSeconds === 0 ? '=' : '↑'} {commute.durationText}
-                                  </span>
-                                  <span className="text-xs text-slate-400">arrive {commute.arrivalTime}</span>
+                          <div key={commute.destination} className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${commute.destination === 'Bloomberg' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400' : 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400'
+                                  }`}>
+                                  {commute.destination === 'Bloomberg' ? (
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                                      <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                                    </svg>
+                                  )}
+                                </div>
+                                <div>
+                                  <span className="font-semibold text-slate-900 dark:text-slate-100">{commute.destination}</span>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                      {commute.durationText}
+                                    </span>
+                                    <span className="text-xs text-slate-400">arrive {commute.arrivalTime}</span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${commute.isFaster
-                                ? 'bg-green-100 text-green-700'
-                                : commute.benchmarkDiffSeconds === 0
-                                  ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                                  : 'bg-red-100 text-red-700'
-                                }`}>
-                                {commute.benchmarkDiffText}
-                              </span>
-                              <div className="text-xs text-slate-400 mt-1">vs 20 Woodcroft</div>
-                            </div>
+                            {/* Step-by-step breakdown */}
+                            {commute.steps && commute.steps.length > 0 && (
+                              <div className="mt-3 ml-[52px] space-y-0">
+                                {commute.steps.map((step, i) => (
+                                  <div key={i} className="flex items-stretch gap-2">
+                                    {/* Timeline connector */}
+                                    <div className="flex flex-col items-center w-5 flex-shrink-0">
+                                      <div className={`w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0 ${
+                                        step.mode === 'WALKING'
+                                          ? 'bg-slate-300 dark:bg-slate-600'
+                                          : step.transitType === 'HEAVY_RAIL' || step.transitType === 'COMMUTER_TRAIN'
+                                            ? 'bg-orange-400'
+                                            : step.transitType === 'SUBWAY'
+                                              ? 'bg-red-400'
+                                              : step.transitType === 'BUS'
+                                                ? 'bg-green-400'
+                                                : 'bg-blue-400'
+                                      }`} />
+                                      {i < commute.steps.length - 1 && (
+                                        <div className="w-0.5 flex-1 min-h-[12px] bg-slate-200 dark:bg-slate-700" />
+                                      )}
+                                    </div>
+                                    {/* Step detail */}
+                                    <div className="pb-2 min-w-0">
+                                      {step.mode === 'WALKING' ? (
+                                        <div className="flex items-baseline gap-2">
+                                          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">🚶 Walk {step.durationText}</span>
+                                          {step.instruction && (
+                                            <span className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{step.instruction}</span>
+                                          )}
+                                        </div>
+                                      ) : step.mode === 'TRANSIT' ? (
+                                        <div>
+                                          <div className="flex items-center gap-1.5">
+                                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-semibold ${
+                                              step.transitType === 'HEAVY_RAIL' || step.transitType === 'COMMUTER_TRAIN'
+                                                ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400'
+                                                : step.transitType === 'SUBWAY'
+                                                  ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                                  : step.transitType === 'BUS'
+                                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                                                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                                            }`}>
+                                              {step.transitType === 'HEAVY_RAIL' || step.transitType === 'COMMUTER_TRAIN' ? '🚆' :
+                                                step.transitType === 'SUBWAY' ? '🚇' :
+                                                  step.transitType === 'BUS' ? '🚌' : '🚊'}
+                                              {' '}{step.transitLine || 'Transit'}
+                                            </span>
+                                            <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{step.durationText}</span>
+                                            {step.numStops && (
+                                              <span className="text-[11px] text-slate-400">({step.numStops} stops)</span>
+                                            )}
+                                          </div>
+                                          {(step.departureStop || step.arrivalStop) && (
+                                            <div className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                                              {step.departureStop}{step.departureStop && step.arrivalStop ? ' → ' : ''}{step.arrivalStop}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span className="text-xs text-slate-500">{step.durationText}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

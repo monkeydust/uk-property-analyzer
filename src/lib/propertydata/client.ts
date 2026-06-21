@@ -94,7 +94,7 @@ async function singleFetch<T>(
   timeoutMs: number
 ): Promise<T> {
   const apiKey = getApiKey();
-  const url = `https://api.propertydata.co.uk/${path}?${toQuery(params)}`;
+  const url = `https://api.propertydata.co.uk/${path}?key=${encodeURIComponent(apiKey)}&${toQuery(params)}`;
 
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), timeoutMs);
@@ -104,7 +104,6 @@ async function singleFetch<T>(
       signal: abort.signal,
       headers: {
         'Accept': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
       },
     });
 

@@ -1,11 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getWalkingDistances, findNearbyTrainStations, findNearbyTubeStations } from '@/lib/utils/google-maps';
-import { getTubeLinesForStations, getTrainOperatorsForStations, getOperatorDisplayNames } from '@/lib/utils/station-lines';
+import { getTubeLinesForStations, getTrainOperatorsForStations, getOperatorDisplayNames, tubeStationLines } from '@/lib/utils/station-lines';
 import { stationsCache, TTL } from '@/lib/cache';
 import logger from '@/lib/logger';
 
 function stationsCacheKey(lat: number, lng: number): string {
   return `stations::${lat.toFixed(4)}::${lng.toFixed(4)}`;
+}
+
+// Normalise station name for tube line lookup (strip "Station", "Underground" etc.)
+function normaliseName(name: string): string {
+  return name
+    .replace(/\s*(Underground|Rail|Railway|Train)?\s*Station$/i, '')
+    .trim();
+}
+
+function lookupTubeLines(rawName: string): string[] | null {
+  const norm = normaliseName(rawName);
+  if (tubeStationLines[norm]) return tubeStationLines[norm];
+  // Try partial match
+  for (const [key, lines] of Object.entries(tubeStationLines)) {
+    if (norm.includes(key) || key.includes(norm)) return lines;
+  }
+  return null;
 }
 
 export async function GET(request: NextRequest) {
@@ -56,7 +73,19 @@ export async function GET(request: NextRequest) {
       if (seenTubeNames.has(s.name)) return false;
       seenTubeNames.add(s.name);
       return true;
-    }).slice(0, 3);
+    }).slice(0, 3) || [];
+
+    // Cross-check: train stations that are also tube stations should appear in tube list
+    // (e.g. Chalfont & Latimer is Metropolitan line but Google only types it as train_station)
+    if (trainStations) {
+      for (const ts of trainStations) {
+        const tubeLines = lookupTubeLines(ts.name);
+        if (tubeLines && !tubeStations.some(t => t.name === ts.name)) {
+          tubeStations.push({ ...ts }); // Add to tube list too
+          logger.info(`Reclassified "${ts.name}" as also tube (${tubeLines.join(', ')})`, 'stations');
+        }
+      }
+    }
 
     logger.info(`Found ${trainStations?.length || 0} train, ${tubeStations?.length || 0} tube stations`, 'stations');
 
